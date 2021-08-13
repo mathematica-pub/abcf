@@ -11,6 +11,7 @@
 #include "funs.h"
 #include "bd.h"
 #include "logging.h"
+#include "param_draws.h"
 
 using namespace Rcpp;
 // Rstudios check's suggest not ignoring these
@@ -82,6 +83,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   bool log_level = false;
 
   logger.setLevel(log_level);
+  
   logger.log("============================================================");
   logger.log(" Starting up BCF: ");
   logger.log("============================================================");
@@ -93,7 +95,6 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     logger.getVectorHead(w_, logBuff);
     Rcout << "w: " <<  logBuff << "\n";
   }
-
 
   logger.log("BCF is Weighted");
 
@@ -389,254 +390,9 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     logger.log("- Tree Processing");
     logger.log("=====================================");
 
-    //draw trees for m(x)
-    for(size_t iTreeCon=0;iTreeCon<ntree_con;iTreeCon++) {
+    update_trees("control", t_con, xi_con, di_con, pi_con, ntrt, weight, z_, y, allfit, allfit_con, r_con, mscale, bscale0, bscale1, gen, logger, verbose_itr && printTrees);
 
-      logger.log("==================================");
-      sprintf(logBuff, "Updating Control Tree: %d of %d",iTreeCon + 1 , ntree_con);
-      logger.log(logBuff);
-      logger.log("==================================");
-      logger.startContext();
-
-      logger.log("Attempting to Print Tree Pre Update \n");
-      if(verbose_itr && printTrees){
-        t_con[iTreeCon].pr(xi_con);
-        Rcout << "\n\n";
-      }
-
-      fit(t_con[iTreeCon], // tree& t
-          xi_con, // xinfo& xi
-          di_con, // dinfo& di
-          ftemp); // std::vector<double>& fv
-
-
-      logger.log("Attempting to Print Tree Post first call to fit \n");
-      if(verbose_itr && printTrees){
-        t_con[iTreeCon].pr(xi_con);
-        Rcout << "\n\n";
-      }
-
-      for(size_t k=0;k<n;k++) {
-        if(ftemp[k] != ftemp[k]) {
-          Rcout << "control tree " << iTreeCon <<" obs "<< k<<" "<< endl;
-          Rcout << t_con[iTreeCon] << endl;
-          stop("nan in ftemp");
-        }
-
-        allfit[k]     = allfit[k]     -mscale*ftemp[k];
-        allfit_con[k] = allfit_con[k] -mscale*ftemp[k];
-        
-        r_con[k] = (y[k]-allfit[k])/mscale;
-
-        if(r_con[k] != r_con[k]) {
-          Rcout << (y[k]-allfit[k]) << endl;
-          Rcout << mscale << endl;
-          Rcout << r_con[k] << endl;
-          stop("NaN in resid");
-        }
-      }
-
-      
-
-      if(verbose_itr && printTrees){
-        logger.getVectorHead(weight, logBuff);
-        Rcout << "\n weight: " <<  logBuff << "\n\n";
-      } 
-      logger.log("Starting Birth / Death Processing");
-      logger.startContext();
-      bd(t_con[iTreeCon], // tree& x
-         xi_con, // xinfo& xi
-         di_con, // dinfo& di
-         weight, // phi
-         pi_con, // pinfo& pi
-         gen,
-         logger); // RNG& gen
-      logger.stopContext();
-
-      logger.log("Attempting to Print Tree Post db \n");
-      if(verbose_itr && printTrees){
-        t_con[iTreeCon].pr(xi_con);
-        Rcout << "\n";
-      }
-
-      if (verbose_itr && printTrees){
-        logger.log("Printing Current Status of Fit");
-
-        logger.getVectorHead(z_, logBuff);
-        // logger.log(logBuff);
-        Rcout << "\n          z : " <<  logBuff << "\n";
-
-        logger.getVectorHead(y, logBuff);
-        Rcout << "          y : " <<  logBuff << "\n";
-
-        logger.getVectorHead(allfit, logBuff);
-        Rcout << "Fit - Tree  : " <<  logBuff << "\n";
-
-        logger.getVectorHead(r_con, logBuff);
-        Rcout << "     r_con  : " <<  logBuff << "\n\n";
-
-        Rcout <<" MScale: " << mscale << "\n";
-
-        Rcout <<" bscale0 : " << bscale0 << "\n";
-
-        Rcout <<" bscale1 : " << bscale1 << "\n\n";
-
-      }
-      logger.log("Starting To Draw Mu");
-      logger.startContext();
-
-      drmu(t_con[iTreeCon],  // tree& x
-           xi_con, // xinfo& xi
-           di_con, // dinfo& di
-           pi_con, // pinfo& pi,
-           weight,
-           gen); // RNG& gen
-
-      logger.stopContext();
-
-      logger.log("Attempting to Print Tree Post drmu \n");
-      if(verbose_itr  && printTrees){
-        t_con[iTreeCon].pr(xi_con);
-        Rcout << "\n";
-      }
-
-      fit(t_con[iTreeCon],
-          xi_con,
-          di_con,
-          ftemp);
-
-      for(size_t k=0;k<n;k++) {
-        allfit[k] += mscale*ftemp[k];
-        allfit_con[k] += mscale*ftemp[k];
-      }
-
-      logger.log("Attempting to Print tree Post second call to fit \n");
-
-      if(verbose_itr && printTrees){
-        t_con[iTreeCon].pr(xi_con);
-        Rcout << "\n";
-
-      }
-      logger.stopContext();
-    }
-
-
-    for(size_t iTreeMod=0;iTreeMod<ntree_mod;iTreeMod++) {
-      logger.log("==================================");
-      sprintf(logBuff, "Updating Moderate Tree: %d of %d",iTreeMod + 1 , ntree_mod);
-      logger.log(logBuff);
-      logger.log("==================================");
-      logger.startContext();
-
-
-      logger.log("Attempting to Print Tree Pre Update \n");
-      if(verbose_itr && printTrees){
-        t_mod[iTreeMod].pr(xi_mod);
-        Rcout << "\n";
-      }
-
-      fit(t_mod[iTreeMod],
-          xi_mod,
-          di_mod,
-          ftemp);
-
-      logger.log("Attempting to Print Tree Post first call to fit");
-      if(verbose_itr && printTrees){
-        t_mod[iTreeMod].pr(xi_mod);
-        Rcout << "\n";
-      }
-
-      for(size_t k=0;k<n;k++) {
-        if(ftemp[k] != ftemp[k]) {
-          Rcout << "moderator tree " << iTreeMod <<" obs "<< k<<" "<< endl;
-          Rcout << t_mod[iTreeMod] << endl;
-          stop("nan in ftemp");
-        }
-        double bscale = (k<ntrt) ? bscale1 : bscale0;
-        allfit[k] = allfit[k]-bscale*ftemp[k];
-        allfit_mod[k] = allfit_mod[k]-bscale*ftemp[k];
-        r_mod[k] = (y[k]-allfit[k])/bscale;
-      }
-      logger.log("Starting Birth / Death Processing");
-      logger.startContext();
-      bd(t_mod[iTreeMod],
-         xi_mod,
-         di_mod,
-         weight_het,
-         pi_mod,
-         gen,
-         logger);
-      logger.stopContext();
-
-      logger.log("Attempting to Print Tree  Post bd \n");
-      if(verbose_itr && printTrees){
-        t_mod[iTreeMod].pr(xi_mod);
-        Rcout << "\n";
-      }
-
-      if (verbose_itr && printTrees){
-        logger.log("Printing Status of Fit");
-
-        logger.getVectorHead(z_, logBuff);
-        Rcout << "\n          z : " <<  logBuff << "\n";
-
-        logger.getVectorHead(y, logBuff);
-        Rcout << "          y : " <<  logBuff << "\n";
-
-        logger.getVectorHead(allfit, logBuff);
-        Rcout << "Fit - Tree  : " <<  logBuff << "\n";
-
-        logger.getVectorHead(r_mod, logBuff);
-        Rcout << "     r_mod  : " <<  logBuff << "\n\n";
-
-        Rcout <<" MScale: " << mscale << "\n";
-
-        Rcout <<" bscale0 : " << bscale0 << "\n";
-
-        Rcout <<" bscale1 : " << bscale1 << "\n\n";
-
-      }
-      logger.log("Starting To Draw Mu");
-      logger.startContext();
-      drmu(t_mod[iTreeMod],
-            xi_mod,
-            di_mod,
-            pi_mod,
-            weight_het,
-            gen);
-      logger.stopContext();
-      
-
-
-      logger.log("Attempting to Print Tree Post drmuhet \n");
-      if(verbose_itr && printTrees){
-        t_mod[iTreeMod].pr(xi_mod);
-        Rcout << "\n";
-      }
-
-      fit(t_mod[iTreeMod],
-          xi_mod,
-          di_mod,
-          ftemp);
-
-      for(size_t k=0;k<ntrt;k++) {
-        allfit[k] += bscale1*ftemp[k];
-        allfit_mod[k] += bscale1*ftemp[k];
-      }
-      for(size_t k=ntrt;k<n;k++) {
-        allfit[k] += bscale0*ftemp[k];
-        allfit_mod[k] += bscale0*ftemp[k];
-      }
-
-      logger.log("Attempting to Print Tree Post second call to fit");
-
-      if(verbose_itr && printTrees){
-        t_mod[iTreeMod].pr(xi_mod);
-        Rcout << "\n";
-      }
-      logger.stopContext();
-
-    } // end tree lop
+    update_trees("moderate", t_mod, xi_mod, di_mod, pi_mod, ntrt, weight_het, z_, y, allfit, allfit_mod, r_mod, mscale, bscale0, bscale1, gen, logger, verbose_itr && printTrees);
 
     logger.setLevel(verbose_itr);
 
