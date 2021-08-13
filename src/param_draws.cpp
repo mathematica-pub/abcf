@@ -152,3 +152,116 @@ void update_trees(std::string context, std::vector<tree>& t,
       logger.stopContext();
     }
 }
+
+void draw_scale(std::string context, double& scale, double scale_prec, double ww, double rw, RNG& gen, Logger& logger, bool verbose) {
+    logger.log("Drawing " + context);
+    logger.startContext();
+
+    double scale_old = scale;
+    double scale_fc_var = 1/(ww + scale_prec);
+    scale = scale_fc_var*rw + gen.normal(0., 1.)*sqrt(scale_fc_var);
+    if(verbose){
+        Rcpp::Rcout << "Original " << context << " : " << scale_old << "\n";
+        Rcpp::Rcout << "scale_prec : " << scale_prec << ", ww : " << ww << ", rw : " << rw << "\n";
+        Rcpp::Rcout << "New  " << context << " : " << scale << "\n\n";
+    }
+    logger.stopContext();
+}
+
+// Annoying to have to put in all 3 scales, even if only working on one of them.
+// For allfit - "spec" = applicable allfit (con for m, mod for b), alt = opposite allfit (mod for m, con for b)
+void update_scale(std::string context, std::vector<tree>& t, 
+                    double scale_prec, double spec_sd, bool b_half_normal,
+                    double sigma, double& mscale, double& bscale0, double& bscale1,
+                    double* allfit_spec, double* allfit_alt, pinfo& pi, double& delta,
+                    int ntrt, std::vector<double>& y, double* w, 
+                    RNG& gen, Logger& logger, bool verbose) {
+    
+    // Basics
+    int n = y.size();
+    int ntree = t.size();
+    char logBuff[100];
+
+    if (context!="mscale" && context!="bscale") {
+        Rcpp::stop("context must be mscale or bscale");
+    }
+
+    double ww = 0.0, ww0 = 0.0, ww1 = 0.;
+    double rw = 0.0, rw0 = 0.0, rw1 = 0.;
+    double s2 = sigma*sigma;
+
+    for(size_t k=0; k<n; ++k) {
+        double scale = (context=="mscale") ? mscale : (k<ntrt) ? bscale1 : bscale0;
+        double scale_factor = (w[k]*allfit_spec[k]*allfit_spec[k])/(s2*scale*scale);
+        
+        if(scale_factor!=scale_factor) {
+          Rcpp::Rcout << " scale_factor " << scale_factor << endl;
+          Rcpp::stop("NaN in scale factor");
+        }
+
+        // numerator is what's unexplained by the other factor
+        double r = (y[k] - allfit_alt[k])*scale/allfit_spec[k];
+        
+        if(r!=r) {
+          Rcpp::Rcout << " individual " << k << " r " << r << endl;
+          Rcpp::stop("NaN in r");
+        }
+
+        if(context=="mscale") {
+          ww += scale_factor;
+          rw += r*scale_factor;
+        } else if(k<ntrt) {
+          ww1 += scale_factor;
+          rw1 += r*scale_factor;
+        } else {
+          ww0 += scale_factor;
+          rw0 += r*scale_factor;
+        }
+    }
+
+    double mscale_old, bscale0_old, bscale1_old;
+    if(context=="mscale") {
+        mscale_old = mscale;
+        draw_scale("mscale", mscale, scale_prec, ww, rw, gen, logger, verbose);
+    } else {
+        bscale0_old = bscale0;
+        bscale1_old = bscale1;
+        draw_scale("bscale1", bscale1, scale_prec, ww1, rw1, gen, logger, verbose);
+        draw_scale("bscale0", bscale0, scale_prec, ww0, rw0, gen, logger, verbose);
+    }
+
+    for(size_t k=0; k<n; ++k) {
+        double scale_ratio = (context=="mscale") ? mscale/mscale_old : (k<ntrt) ? bscale1/bscale1_old : bscale0/bscale0_old;
+        allfit_spec[k] = allfit_spec[k]*scale_ratio;
+    }
+
+    if(context=="mscale" || !b_half_normal) {
+        double ssq = 0.0;
+        tree::npv bnv;
+        typedef tree::npv::size_type bvsz;
+        double endnode_count = 0.0;
+
+        for(size_t iTree=0;iTree<ntree;iTree++) {
+          bnv.clear();
+          t[iTree].getbots(bnv);
+          bvsz nb = bnv.size();
+          for(bvsz ii = 0; ii<nb; ++ii) {
+            double mm = bnv[ii]->getm(); //node parameter
+            ssq += mm*mm/(pi.tau*pi.tau);
+            endnode_count += 1.0;
+          }
+        }
+        delta = gen.gamma(0.5*(1. + endnode_count), 1.0)/(0.5*(1 + ssq));
+    }
+
+    if(verbose){
+        logger.log("Updating pi.tau");
+        Rcpp::Rcout << "Original pi.tau : " <<  pi.tau << "\n";
+    }
+      
+    pi.tau = spec_sd/(sqrt(delta)*sqrt((double) ntree));
+      
+    if(verbose){
+        Rcpp::Rcout << "New pi.tau : " <<  pi.tau << "\n\n";
+    }
+}
