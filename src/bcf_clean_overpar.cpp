@@ -355,25 +355,9 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
     logger.setLevel(verbose_itr);
 
-    logger.log("==============================================");
-    sprintf(logBuff, "MCMC iteration: %d of %d Start", iIter + 1, nd*thin+burn);
-    logger.log(logBuff);
-    sprintf(logBuff, "sigma %f, mscale %f, bscale0 %f, bscale1 %f",sigma, mscale, bscale0, bscale1);
-    logger.log(logBuff);
-    logger.log("==============================================");
-    if (verbose_itr){
-      logger.getVectorHead(y, logBuff);
-      Rcout << "           y: " <<  logBuff << "\n";
-
-      logger.getVectorHead(allfit, logBuff);
-      Rcout << "Current Fit : " <<  logBuff << "\n";
-
-      logger.getVectorHead(allfit_con, logBuff);
-      Rcout << "allfit_con  : " <<  logBuff << "\n";
-
-      logger.getVectorHead(allfit_mod, logBuff);
-      Rcout << "allfit_mod  : " <<  logBuff << "\n";
-    }
+    log_iter("Start", iIter+1, nd*thin+burn, sigma, mscale, bscale0, bscale1, logger);
+    
+    log_fit(y, allfit, allfit_con, allfit_mod, logger, verbose_itr);
 
     for (int k=0; k<n; ++k){
       weight[k] = w[k]*mscale*mscale/(sigma * sigma); // for non-het case, weights need to be divided by sigma square to make it similar to phi
@@ -394,26 +378,17 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
     update_trees("moderate", t_mod, xi_mod, di_mod, pi_mod, ntrt, weight_het, z_, y, allfit, allfit_mod, r_mod, mscale, bscale0, bscale1, gen, logger, verbose_itr && printTrees);
 
-    logger.setLevel(verbose_itr);
-
     logger.log("=====================================");
     logger.log("- MCMC iteration Cleanup");
     logger.log("=====================================");
 
     if(use_bscale) {
       update_scale("bscale", t_mod, bscale_prec, mod_sd, b_half_normal, sigma, mscale, bscale0, bscale1, allfit_mod, allfit_con, pi_mod, delta_mod, ntrt, y, w, gen, logger, verbose_itr);
-    } else {
-      bscale0 = -0.5;
-      bscale1 =  0.5;
     }
-    pi_mod.sigma = sigma;
 
     if(use_mscale) {
      update_scale("mscale", t_con, mscale_prec, con_sd, b_half_normal, sigma, mscale, bscale0, bscale1, allfit_con, allfit_mod, pi_con, delta_con, ntrt, y, w, gen, logger, verbose_itr);
-    } else {
-      mscale = 1.0;
     }
-    pi_con.sigma = sigma/fabs(mscale); //should be sigma/abs(mscale) for backfitting
 
     //sync allfits after scale updates, if necessary. Could do smarter backfitting updates inline
     if(use_mscale || use_bscale) {
@@ -518,25 +493,10 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       //}
       save_ctr += 1;
     }
-    logger.log("==============================================");
-    sprintf(logBuff, "MCMC iteration: %d of %d End", iIter + 1, nd*thin+burn);
-    logger.log(logBuff);
-    sprintf(logBuff, "sigma %f, mscale %f, bscale0 %f, bscale1 %f",sigma, mscale, bscale0, bscale1);
-    logger.log(logBuff);
-    logger.log("==============================================");
-    if (verbose_itr){
-      logger.getVectorHead(y, logBuff);
-      Rcout << "           y: " <<  logBuff << "\n";
 
-      logger.getVectorHead(allfit, logBuff);
-      Rcout << "Current Fit : " <<  logBuff << "\n";
-
-      logger.getVectorHead(allfit_con, logBuff);
-      Rcout << "allfit_con  : " <<  logBuff << "\n";
-
-      logger.getVectorHead(allfit_mod, logBuff);
-      Rcout << "allfit_mod  : " <<  logBuff << "\n";
-    }
+    log_iter("End", iIter+1, nd*thin+burn, sigma, mscale, bscale0, bscale1, logger);
+    
+    log_fit(y, allfit, allfit_con, allfit_mod, logger, verbose_itr);
 
   } // end MCMC Loop
 

@@ -11,6 +11,33 @@ void drct_test_func(void){
     Rcpp::Rcout << "I am the DRCT test function" << std::endl;
 }
 
+void log_iter(std::string context, int current, int final, double sigma, double mscale, double bscale0, double bscale1, Logger& logger) {
+    char logBuff[100];
+    logger.log("==============================================");
+    sprintf(logBuff, "MCMC iteration: %d of %d ", current, final);
+    logger.log(logBuff + context);
+    sprintf(logBuff, "sigma %f, mscale %f, bscale0 %f, bscale1 %f",sigma, mscale, bscale0, bscale1);
+    logger.log(logBuff);
+    logger.log("==============================================");
+}
+
+void log_fit(std::vector<double>& y, double* allfit, double* allfit_con, double* allfit_mod, Logger& logger, bool verbose) {
+    char logBuff[100];
+    if (verbose) {
+        logger.getVectorHead(y, logBuff);
+        Rcpp::Rcout << "           y: " <<  logBuff << "\n";
+
+        logger.getVectorHead(allfit, logBuff);
+        Rcpp::Rcout << "Current Fit : " <<  logBuff << "\n";
+
+        logger.getVectorHead(allfit_con, logBuff);
+        Rcpp::Rcout << "allfit_con  : " <<  logBuff << "\n";
+
+        logger.getVectorHead(allfit_mod, logBuff);
+        Rcpp::Rcout << "allfit_mod  : " <<  logBuff << "\n";
+    }
+}
+
 void log_status(Rcpp::NumericVector& z_, std::vector<double>& y, double* allfit, double* ri, double mscale, double bscale0, double bscale1, Logger& logger) {
     char logBuff[100];
 
