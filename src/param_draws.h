@@ -33,4 +33,13 @@ void update_scale(std::string context, std::vector<tree>& t,
 
 void update_sigma(std::vector<double>& y, double* w, double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, RNG& gen, Logger& logger);
 
+void save_values(size_t& save_ctr, int n, int ntrt,
+                Rcpp::NumericVector& msd_post, Rcpp::NumericVector& bsd_post, 
+                Rcpp::NumericVector& b0_post, Rcpp::NumericVector& b1_post, Rcpp::NumericVector& sigma_post,
+                double mscale, double bscale1, double bscale0, double sigma,
+                Rcpp::NumericMatrix& m_post, Rcpp::NumericMatrix& yhat_post, Rcpp::NumericMatrix& b_post,
+                double* allfit, double* allfit_con, double* allfit_mod,
+                arma::mat& gamma_post, arma::mat& random_var_post,
+                arma::mat& random_var, arma::mat& random_var_ix, arma::vec& eta, arma::vec& gamma);
+
 #endif

@@ -460,26 +460,10 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
         for(size_t j=0;j<ntree_mod;j++) treef_mod << std::setprecision(save_tree_precision) << t_mod[j] << endl; // save trees
       }
       
-      msd_post(save_ctr) = mscale;
-      bsd_post(save_ctr) = bscale1-bscale0;
-      b0_post(save_ctr)  = bscale0;
-      b1_post(save_ctr)  = bscale1;
-
-
-      gamma_post.row(save_ctr) = (diagmat(random_var_ix*eta)*gamma).t();
-      random_var_post.row(save_ctr) = (sqrt( eta % eta % random_var)).t();
-
-      sigma_post(save_ctr) = sigma;
-      for(size_t k=0;k<n;k++) {
-        m_post(save_ctr, k) = allfit_con[k];
-        yhat_post(save_ctr, k) = allfit[k];
-      }
-      for(size_t k=0;k<n;k++) {
-        double bscale = (k<ntrt) ? bscale1 : bscale0;
-        b_post(save_ctr, k) = (bscale1-bscale0)*allfit_mod[k]/bscale;
-      }
-      //}
-      save_ctr += 1;
+      save_values(save_ctr, n, ntrt, msd_post, bsd_post, b0_post, b1_post, sigma_post,
+                  mscale, bscale1, bscale0, sigma, m_post, yhat_post, b_post,
+                  allfit, allfit_con, allfit_mod, gamma_post, random_var_post,
+                  random_var, random_var_ix, eta, gamma);
     }
 
     log_iter("End", iIter+1, nd*thin+burn, sigma, mscale, bscale0, bscale1, logger);

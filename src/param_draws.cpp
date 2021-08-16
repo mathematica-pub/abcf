@@ -302,8 +302,36 @@ void update_sigma(std::vector<double>& y, double* w, double* allfit, double& sig
     restemp = y[k]-allfit[k];
     rss += w[k]*restemp*restemp;
   }
-  
+
   sigma = sqrt((nu*lambda + rss)/gen.chi_square(nu+n));
   pi_con.sigma = sigma/fabs(mscale);
   pi_mod.sigma = sigma;
+}
+
+void save_values(size_t& save_ctr, int n, int ntrt,
+                Rcpp::NumericVector& msd_post, Rcpp::NumericVector& bsd_post, 
+                Rcpp::NumericVector& b0_post, Rcpp::NumericVector& b1_post, Rcpp::NumericVector& sigma_post,
+                double mscale, double bscale1, double bscale0, double sigma,
+                Rcpp::NumericMatrix& m_post, Rcpp::NumericMatrix& yhat_post, Rcpp::NumericMatrix& b_post,
+                double* allfit, double* allfit_con, double* allfit_mod,
+                arma::mat& gamma_post, arma::mat& random_var_post,
+                arma::mat& random_var, arma::mat& random_var_ix, arma::vec& eta, arma::vec& gamma) {
+
+  msd_post(save_ctr) = mscale;
+  bsd_post(save_ctr) = bscale1-bscale0;
+  b0_post(save_ctr)  = bscale0;
+  b1_post(save_ctr)  = bscale1;
+  sigma_post(save_ctr) = sigma;
+
+  for(size_t k=0;k<n;k++) {
+    m_post(save_ctr, k) = allfit_con[k];
+    yhat_post(save_ctr, k) = allfit[k];
+    double bscale = (k<ntrt) ? bscale1 : bscale0;
+    b_post(save_ctr, k) = (bscale1-bscale0)*allfit_mod[k]/bscale;
+  }
+
+  gamma_post.row(save_ctr) = (diagmat(random_var_ix*eta)*gamma).t();
+  random_var_post.row(save_ctr) = (sqrt( eta % eta % random_var)).t();
+
+  save_ctr += 1;
 }
