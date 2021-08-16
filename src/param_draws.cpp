@@ -195,6 +195,26 @@ void draw_scale(std::string context, double& scale, double scale_prec, double ww
     logger.stopContext();
 }
 
+void draw_delta(std::vector<tree>& t, pinfo& pi, double& delta, RNG& gen) {
+  int ntree = t.size();
+  double ssq = 0.0;
+  tree::npv bnv;
+  typedef tree::npv::size_type bvsz;
+  double endnode_count = 0.0;
+
+  for(size_t iTree=0;iTree<ntree;iTree++) {
+    bnv.clear();
+    t[iTree].getbots(bnv);
+    bvsz nb = bnv.size();
+    for(bvsz ii = 0; ii<nb; ++ii) {
+      double mm = bnv[ii]->getm(); //node parameter
+      ssq += mm*mm/(pi.tau*pi.tau);
+      endnode_count += 1.0;
+    }
+  }
+  delta = gen.gamma(0.5*(1. + endnode_count), 1.0)/(0.5*(1 + ssq));
+}
+
 // Annoying to have to put in all 3 scales, even if only working on one of them.
 // For allfit - "spec" = applicable allfit (con for m, mod for b), alt = opposite allfit (mod for m, con for b)
 void update_scale(std::string context, std::vector<tree>& t, 
@@ -263,22 +283,7 @@ void update_scale(std::string context, std::vector<tree>& t,
     }
 
     if(context=="mscale" || !b_half_normal) {
-        double ssq = 0.0;
-        tree::npv bnv;
-        typedef tree::npv::size_type bvsz;
-        double endnode_count = 0.0;
-
-        for(size_t iTree=0;iTree<ntree;iTree++) {
-          bnv.clear();
-          t[iTree].getbots(bnv);
-          bvsz nb = bnv.size();
-          for(bvsz ii = 0; ii<nb; ++ii) {
-            double mm = bnv[ii]->getm(); //node parameter
-            ssq += mm*mm/(pi.tau*pi.tau);
-            endnode_count += 1.0;
-          }
-        }
-        delta = gen.gamma(0.5*(1. + endnode_count), 1.0)/(0.5*(1 + ssq));
+       draw_delta(t, pi, delta, gen) ;
     }
 
     if(verbose){

@@ -24,6 +24,8 @@ void update_trees(std::string context, std::vector<tree>& t,
 
 void draw_scale(std::string context, double& scale, double scale_prec, double ww, double rw, RNG& gen, Logger& logger, bool verbose);
 
+void draw_delta(std::vector<tree>& t, pinfo& pi, double& delta, RNG& gen);
+
 void update_scale(std::string context, std::vector<tree>& t, 
                     double scale_prec, double spec_sd, bool b_half_normal,
                     double sigma, double& mscale, double& bscale0, double& bscale1,
