@@ -38,8 +38,6 @@ void save_values(size_t& save_ctr, int n, int ntrt,
                 Rcpp::NumericVector& b0_post, Rcpp::NumericVector& b1_post, Rcpp::NumericVector& sigma_post,
                 double mscale, double bscale1, double bscale0, double sigma,
                 Rcpp::NumericMatrix& m_post, Rcpp::NumericMatrix& yhat_post, Rcpp::NumericMatrix& b_post,
-                double* allfit, double* allfit_con, double* allfit_mod,
-                arma::mat& gamma_post, arma::mat& random_var_post,
-                arma::mat& random_var, arma::mat& random_var_ix, arma::vec& eta, arma::vec& gamma);
+                double* allfit, double* allfit_con, double* allfit_mod);
 
 #endif

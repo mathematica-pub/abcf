@@ -313,9 +313,7 @@ void save_values(size_t& save_ctr, int n, int ntrt,
                 Rcpp::NumericVector& b0_post, Rcpp::NumericVector& b1_post, Rcpp::NumericVector& sigma_post,
                 double mscale, double bscale1, double bscale0, double sigma,
                 Rcpp::NumericMatrix& m_post, Rcpp::NumericMatrix& yhat_post, Rcpp::NumericMatrix& b_post,
-                double* allfit, double* allfit_con, double* allfit_mod,
-                arma::mat& gamma_post, arma::mat& random_var_post,
-                arma::mat& random_var, arma::mat& random_var_ix, arma::vec& eta, arma::vec& gamma) {
+                double* allfit, double* allfit_con, double* allfit_mod) {
 
   msd_post(save_ctr) = mscale;
   bsd_post(save_ctr) = bscale1-bscale0;
@@ -329,9 +327,6 @@ void save_values(size_t& save_ctr, int n, int ntrt,
     double bscale = (k<ntrt) ? bscale1 : bscale0;
     b_post(save_ctr, k) = (bscale1-bscale0)*allfit_mod[k]/bscale;
   }
-
-  gamma_post.row(save_ctr) = (diagmat(random_var_ix*eta)*gamma).t();
-  random_var_post.row(save_ctr) = (sqrt( eta % eta % random_var)).t();
 
   save_ctr += 1;
 }

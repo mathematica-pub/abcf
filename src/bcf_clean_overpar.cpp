@@ -30,9 +30,6 @@ using namespace Rcpp;
 List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   NumericVector x_con_, NumericVector x_mod_, 
                   List x_con_info_list, List x_mod_info_list, 
-                  arma::mat random_des, //needs to come in with n rows no matter what(?)
-                  arma::mat random_var, arma::mat random_var_ix, //random_var_ix*random_var = diag(Var(random effects))
-                  double random_var_df,
                   int burn, int nd, int thin, //Draw nd*thin + burn samples, saving nd draws after burn-in
                   int ntree_mod, int ntree_con,
                   double lambda, double nu, //prior pars for sigma^2_y
@@ -46,13 +43,6 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   double trt_init = 1.0, bool verbose_sigma=false)
 {
 
-  bool randeff = true;
-  if(random_var_ix.n_elem == 1) {
-    randeff = false;
-  }
-
-  if(randeff) Rcout << "Using random effects." << std::endl;
-  
   std::ofstream treef_con;
   std::ofstream treef_mod;
   
@@ -81,6 +71,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   char logBuff[100];
 
   bool log_level = false;
+  log_level = true;
 
   logger.setLevel(log_level);
   
@@ -259,36 +250,12 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   di_mod.y = r_mod; //the y for each draw will be the residual
 
   //--------------------------------------------------
-  //setup for random effects
-  size_t random_dim = random_des.n_cols;
-  int nr=1;
-  if(randeff) nr = n;
-
-  arma::vec r(nr); //working residuals
-  arma::vec Wtr(random_dim); // W'r
-
-  arma::mat WtW = random_des.t()*random_des; //W'W
-  arma::mat Sigma_inv_random = diagmat(1/(random_var_ix*random_var));
-
-  // PX parameters
-  arma::vec eta(random_var_ix.n_cols); //random_var_ix is num random effects by num variance components
-  eta.fill(1.0);
-
-  for(size_t k=0; k<nr; ++k) {
-    r(k) = y[k] - allfit_con[k] - allfit_mod[k];
-  }
-
-  Wtr = random_des.t()*r;
-  arma::vec gamma = solve(WtW/(sigma*sigma)+Sigma_inv_random, Wtr/(sigma*sigma));
-  arma::vec allfit_random = random_des*gamma;
-  if(!randeff) allfit_random.fill(0);
 
   //--------------------------------------------------
   //storage for the fits
   double* allfit = new double[n]; //yhat
   for(size_t i=0;i<n;i++) {
     allfit[i] = allfit_mod[i] + allfit_con[i];
-    if(randeff) allfit[i] += allfit_random[i];
   }
   double* ftemp  = new double[n]; //fit of current tree
 
@@ -300,8 +267,6 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   NumericMatrix m_post(nd,n);
   NumericMatrix yhat_post(nd,n);
   NumericMatrix b_post(nd,n);
-  arma::mat gamma_post(nd,gamma.n_elem);
-  arma::mat random_var_post(nd,random_var.n_elem);
 
   //  NumericMatrix spred2(nd,dip.n);
 
@@ -341,10 +306,12 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   logger.setLevel(0);
 
   bool printTrees = false;
+  printTrees = true;
 
   for(size_t iIter=0;iIter<(nd*thin+burn);iIter++) {
     // verbose_itr = iIter>=burn;
     verbose_itr = false;
+    verbose_itr = true;
 
     if(verbose_sigma){
         if(iIter%status_interval==0) {
@@ -389,66 +356,10 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
      update_scale("mscale", t_con, mscale_prec, con_sd, b_half_normal, sigma, mscale, bscale0, bscale1, allfit_con, allfit_mod, pi_con, delta_con, ntrt, y, w, gen, logger, verbose_itr);
     }
 
-    //sync allfits after scale updates, if necessary. Could do smarter backfitting updates inline
     if(use_mscale || use_bscale) {
       logger.log("Sync allfits after scale updates");
-
       for(size_t k=0; k<n; ++k) {
-        double randeff_contrib = randeff ? allfit_random[k] : 0.0;
-        allfit[k] = allfit_con[k] + allfit_mod[k] + randeff_contrib;
-      }
-    }
-
-    if(randeff) {
-      Rcout << "==================================\n";
-      Rcout << "- Random Effects \n";
-      Rcout << "==================================\n";
-
-      //update random effects
-      for(size_t k=0; k<n; ++k) {
-        r(k) = y[k] - allfit_con[k] - allfit_mod[k];
-        allfit[k] -= allfit_random[k];
-      }
-
-      Wtr = random_des.t()*r;
-
-      arma::mat adj = diagmat(random_var_ix*eta);
-      //    Rcout << adj << endl << endl;
-      arma::mat Phi = adj*WtW*adj/(sigma*sigma) + Sigma_inv_random;
-      arma::vec m = adj*Wtr/(sigma*sigma);
-      //Rcout << m << Phi << endl << Sigma_inv_random;
-      gamma = rmvnorm_post(m, Phi);
-
-      //Rcout << "updated gamma";
-
-      // Update px parameters eta
-
-      arma::mat adj2 = diagmat(gamma)*random_var_ix;
-      arma::mat Phi2 = adj2.t()*WtW*adj2/(sigma*sigma) + arma::eye(eta.size(), eta.size());
-      arma::vec m2 = adj2.t()*Wtr/(sigma*sigma);
-      //Rcout << m << Phi << endl << Sigma_inv_random;
-      eta = rmvnorm_post(m2, Phi2);
-
-      //Rcout << "updated eta";
-
-      // Update variance parameters
-
-      arma::vec ssqs   = random_var_ix.t()*(gamma % gamma);
-      //Rcout << "A";
-      arma::rowvec counts = sum(random_var_ix, 0);
-      //Rcout << "B";
-      for(size_t ii=0; ii<random_var_ix.n_cols; ++ii) {
-        random_var(ii) = 1.0/gen.gamma(0.5*(random_var_df + counts(ii)), 1.0)*2.0/(random_var_df + ssqs(ii));
-      }
-      //Rcout << "updated vars" << endl;
-      Sigma_inv_random = diagmat(1/(random_var_ix*random_var));
-
-      allfit_random = random_des*diagmat(random_var_ix*eta)*gamma;
-
-      //Rcout << "recom allfit vars" << endl;
-
-      for(size_t k=0; k<n; ++k) {
-        allfit[k] = allfit_con[k] + allfit_mod[k] + allfit_random(k); //+= allfit_random[k];
+        allfit[k] = allfit_con[k] + allfit_mod[k];
       }
     }
 
@@ -462,8 +373,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       
       save_values(save_ctr, n, ntrt, msd_post, bsd_post, b0_post, b1_post, sigma_post,
                   mscale, bscale1, bscale0, sigma, m_post, yhat_post, b_post,
-                  allfit, allfit_con, allfit_mod, gamma_post, random_var_post,
-                  random_var, random_var_ix, eta, gamma);
+                  allfit, allfit_con, allfit_mod);
     }
 
     log_iter("End", iIter+1, nd*thin+burn, sigma, mscale, bscale0, bscale1, logger);
@@ -491,7 +401,6 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   }
   
   return(List::create(_["yhat_post"] = yhat_post, _["m_post"] = m_post, _["b_post"] = b_post,
-                      _["sigma"] = sigma_post, _["msd"] = msd_post, _["bsd"] = bsd_post, _["b0"] = b0_post, _["b1"] = b1_post, 
-                      _["gamma"] = gamma_post, _["random_var_post"] = random_var_post
+                      _["sigma"] = sigma_post, _["msd"] = msd_post, _["bsd"] = bsd_post, _["b0"] = b0_post, _["b1"] = b1_post
   ));
 }
