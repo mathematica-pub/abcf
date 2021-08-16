@@ -189,11 +189,8 @@ bool bd(tree& x, xinfo& xi, dinfo& di, double* phi, pinfo& pi, RNG& gen, Logger 
       //--------------------------------------------------
       //compute sufficient statistics
       sinfo sl,sr; //sl for left from nx and sr for right from nx (using rule (v,c))
-#ifdef MPIBART
-		MPImastergetsuff(nx->getl(),nx->getr(),sl,sr,numslaves);
-#else
       getsuffDeath(x,nx->getl(),nx->getr(),xi,di,phi,sl,sr);
-#endif
+
       //--------------------------------------------------
       //compute alpha
 
@@ -226,19 +223,9 @@ bool bd(tree& x, xinfo& xi, dinfo& di, double* phi, pinfo& pi, RNG& gen, Logger 
          //cout << "death, mu=" << mu << endl;
          //x.deathp(nx,mu);
 			x.death(nx->nid(),mu);
-#ifdef MPIBART
-			//Sync this death to the slaves
-			//cout << "Master sending death to slaves" << endl;
-			MPImastersenddeath(nx,mu,numslaves);
-#endif
          return true;
       } else { // if reject death
          logger.log("Rejecting Death");
-
-#ifdef MPIBART
-			//cout << "Master sending no birth/deaths" << endl;
-			MPImastersendnobirthdeath(numslaves);
-#endif
          return false;
       }
    }

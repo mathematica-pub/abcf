@@ -188,23 +188,5 @@ void makexinfo(size_t p, size_t n, double *x, xinfo& xi, size_t nc);
 void makeminmax(size_t p, size_t n, double *x, std::vector<double> &minx, std::vector<double> &maxx);
 //make xinfo = cutpoints given minx/maxx vectors
 void makexinfominmax(size_t p, xinfo& xi, size_t nc, std::vector<double> &minx, std::vector<double> &maxx);
-#ifdef MPIBART
-//MPI Calls
-void MPImasterallsuff(tree& x, tree::npv& bnv, std::vector<sinfo>& sv, size_t numslaves);
-void MPIslaveallsuff(tree& x, xinfo& xi, dinfo& di, tree::npv& bnv);
-void MPIslavedrmu(tree& t, xinfo& xi, dinfo& di);
-void MPImastergetsuff(tree::tree_cp nl, tree::tree_cp nr, sinfo &sl, sinfo &sr, size_t numslaves);
-void MPImastergetsuffvc(tree::tree_cp nx, size_t v, size_t c, xinfo& xi, sinfo& sl, sinfo& sr, size_t numslaves);
-void MPImastersendbirth(tree::tree_p nx, size_t v, size_t c, double mul, double mur, size_t numslaves);
-void MPImastersenddeath(tree::tree_p nx, double mu, size_t numslaves);
-void MPImastersendnobirthdeath(size_t numslaves);
-void MPIslaveupdatebirthdeath(tree& x);
-void MPIslavegetsuff(tree& x, xinfo& xi, dinfo& di);
-void makepred(dinfo dip, xinfo &xi, std::vector<tree> &t, double *ppredmean);
-void makeypred(dinfo dip, xinfo &xi, std::vector<tree> &t, double sigma, double *ppredmean);
-void makepostpred(dinfo dip, xinfo &xi, std::vector< std::vector<tree> > &t, double *postp);
-void makepostpred2(dinfo dip, xinfo &xi, std::vector< std::vector<tree> > &t, double *postp, double *postp2);
-double logcalp(std::vector<double> &theta, dinfo dip, xinfo &xi, std::vector<tree> &t, double sigmae, double sigma, size_t pth, size_t myrank);
-#endif
 
 #endif
