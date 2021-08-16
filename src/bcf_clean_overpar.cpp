@@ -335,7 +335,6 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   size_t save_ctr = 0;
   bool verbose_itr = false; 
 
-
   double* weight      = new double[n];
   double* weight_het  = new double[n];
 
@@ -453,18 +452,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       }
     }
 
-    // ---------------------------------------------------------
-    logger.log("Draw Sigma");
-    // ---------------------------------------------------------
-    double rss = 0.0;
-    double restemp = 0.0;
-    for(size_t k=0;k<n;k++) {
-      restemp = y[k]-allfit[k];
-      rss += w[k]*restemp*restemp;
-    }
-    sigma = sqrt((nu*lambda + rss)/gen.chi_square(nu+n));
-    pi_con.sigma = sigma/fabs(mscale);
-    pi_mod.sigma = sigma; // Is this another copy paste Error?
+    update_sigma(y, w, allfit, sigma, nu, lambda, mscale, pi_con, pi_mod, gen, logger);
 
     if( ((iIter>=burn) & (iIter % thin==0)) )  {
       if(not treef_con_name.empty()){

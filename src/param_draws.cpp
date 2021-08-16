@@ -292,3 +292,18 @@ void update_scale(std::string context, std::vector<tree>& t,
         Rcpp::Rcout << "New pi.tau : " <<  pi.tau << "\n\n";
     }
 }
+
+void update_sigma(std::vector<double>& y, double* w, double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, RNG& gen, Logger& logger) {
+  logger.log("Draw sigma");
+  int n = y.size();
+  double rss = 0.0;
+  double restemp = 0.0;
+  for(size_t k=0;k<n;k++) {
+    restemp = y[k]-allfit[k];
+    rss += w[k]*restemp*restemp;
+  }
+  
+  sigma = sqrt((nu*lambda + rss)/gen.chi_square(nu+n));
+  pi_con.sigma = sigma/fabs(mscale);
+  pi_mod.sigma = sigma;
+}

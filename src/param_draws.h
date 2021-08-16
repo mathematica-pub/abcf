@@ -31,4 +31,6 @@ void update_scale(std::string context, std::vector<tree>& t,
                     int ntrt, std::vector<double>& y, double* w, 
                     RNG& gen, Logger& logger, bool verbose);
 
+void update_sigma(std::vector<double>& y, double* w, double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, RNG& gen, Logger& logger);
+
 #endif
