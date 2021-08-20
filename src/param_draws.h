@@ -5,15 +5,7 @@
 #include "info.h"
 #include "rng.h"
 
-void drct_test_func(void);
-
-void log_iter(std::string context, int current, int final, double sigma, double mscale, double bscale0, double bscale1, Logger& logger);
-
-void log_fit(std::vector<double>& y, double* allfit, double* allfit_con, double* allfit_mod, Logger& logger, bool verbose);
-
-void log_status(Rcpp::NumericVector& z_, std::vector<double>& y, double* allfit, double* ri, double mscale, double bscale0, double bscale1, Logger& logger);
-
-void print_trees(std::string step, tree& t, xinfo& xi, bool verbose, Logger& logger);
+void log_trees(std::string step, tree& t, xinfo& xi, bool verbose, Logger& logger);
 
 void update_trees(std::string context, std::vector<tree>& t, 
                     xinfo& xi, dinfo& di, pinfo& pi, 

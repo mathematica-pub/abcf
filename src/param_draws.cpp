@@ -7,62 +7,7 @@
 #include <RcppArmadillo.h>
 #include "param_draws.h"
 
-void drct_test_func(void){
-    Rcpp::Rcout << "I am the DRCT test function" << std::endl;
-}
-
-void log_iter(std::string context, int current, int final, double sigma, double mscale, double bscale0, double bscale1, Logger& logger) {
-    char logBuff[100];
-    logger.log("==============================================");
-    sprintf(logBuff, "MCMC iteration: %d of %d ", current, final);
-    logger.log(logBuff + context);
-    sprintf(logBuff, "sigma %f, mscale %f, bscale0 %f, bscale1 %f",sigma, mscale, bscale0, bscale1);
-    logger.log(logBuff);
-    logger.log("==============================================");
-}
-
-void log_fit(std::vector<double>& y, double* allfit, double* allfit_con, double* allfit_mod, Logger& logger, bool verbose) {
-    char logBuff[100];
-    if (verbose) {
-        logger.getVectorHead(y, logBuff);
-        Rcpp::Rcout << "           y: " <<  logBuff << "\n";
-
-        logger.getVectorHead(allfit, logBuff);
-        Rcpp::Rcout << "Current Fit : " <<  logBuff << "\n";
-
-        logger.getVectorHead(allfit_con, logBuff);
-        Rcpp::Rcout << "allfit_con  : " <<  logBuff << "\n";
-
-        logger.getVectorHead(allfit_mod, logBuff);
-        Rcpp::Rcout << "allfit_mod  : " <<  logBuff << "\n";
-    }
-}
-
-void log_status(Rcpp::NumericVector& z_, std::vector<double>& y, double* allfit, double* ri, double mscale, double bscale0, double bscale1, Logger& logger) {
-    char logBuff[100];
-
-    logger.log("Printing current status of fit");
-
-    logger.getVectorHead(z_, logBuff);
-    Rcpp::Rcout << "\n          z : " <<  logBuff << "\n";
-
-    logger.getVectorHead(y, logBuff);
-    Rcpp::Rcout << "          y : " <<  logBuff << "\n";
-
-    logger.getVectorHead(allfit, logBuff);
-    Rcpp::Rcout << "Fit - Tree  : " <<  logBuff << "\n";
-
-    logger.getVectorHead(ri, logBuff);
-    Rcpp::Rcout << "     resid  : " <<  logBuff << "\n\n";
-
-    Rcpp::Rcout <<" MScale: " << mscale << "\n";
-
-    Rcpp::Rcout <<" bscale0 : " << bscale0 << "\n";
-
-    Rcpp::Rcout <<" bscale1 : " << bscale1 << "\n\n";
-}
-
-void print_trees(std::string step, tree& t, xinfo& xi, bool verbose, Logger& logger) {
+void log_trees(std::string step, tree& t, xinfo& xi, bool verbose, Logger& logger) {
     logger.log("Attempting to print tree " + step);
     if(verbose){
         t.pr(xi);
@@ -95,14 +40,14 @@ void update_trees(std::string context, std::vector<tree>& t,
       logger.log("==================================");
       logger.startContext();
 
-      print_trees("pre update", t[iTree], xi, verbose, logger);
+      log_trees("pre update", t[iTree], xi, verbose, logger);
       
       fit(t[iTree], // tree& t
           xi, // xinfo& xi
           di, // dinfo& di
           ftemp);
       
-      print_trees("post first call to fit", t[iTree], xi, verbose, logger);
+      log_trees("post first call to fit", t[iTree], xi, verbose, logger);
 
       for(size_t k=0;k<n;k++) {
         if(ftemp[k] != ftemp[k]) {
@@ -111,7 +56,7 @@ void update_trees(std::string context, std::vector<tree>& t,
           Rcpp::stop("nan in ftemp");
         }
 
-        // Scale to use depends on context and k
+        // If we're updating control trees, use mscale; otherwise use bscale1 for treats and bscale0 for controls
         double scale = (context=="control") ? mscale : (k<ntrt) ? bscale1 : bscale0;
 
         allfit[k]     = allfit[k]     -scale*ftemp[k];
@@ -119,7 +64,6 @@ void update_trees(std::string context, std::vector<tree>& t,
         
         ri[k] = (y[k]-allfit[k])/scale;
 
-        // DRCT: we originally only do this for con, not mod. Any reason?
         if(ri[k] != ri[k]) {
           Rcpp::Rcout << (y[k]-allfit[k]) << std::endl;
           Rcpp::Rcout << scale << std::endl;
@@ -144,7 +88,7 @@ void update_trees(std::string context, std::vector<tree>& t,
          logger); // RNG& gen
       logger.stopContext();
 
-      print_trees("post bd", t[iTree], xi, verbose, logger);
+      log_trees("post bd", t[iTree], xi, verbose, logger);
       if(verbose){
         log_status(z_, y, allfit, ri, mscale, bscale0, bscale1, logger);
       }
@@ -161,7 +105,7 @@ void update_trees(std::string context, std::vector<tree>& t,
 
       logger.stopContext();
 
-      print_trees("post drmu", t[iTree], xi, verbose, logger);
+      log_trees("post drmu", t[iTree], xi, verbose, logger);
 
       fit(t[iTree],
           xi,
@@ -169,12 +113,13 @@ void update_trees(std::string context, std::vector<tree>& t,
           ftemp);
 
       for(size_t k=0;k<n;k++) {
+        // If we;re updating control trees, use mscale; otherwise use bscale1 for treats and bscale0 for controls
         double scale = (context=="control") ? mscale : (k<ntrt) ? bscale1 : bscale0;
         allfit[k] += scale*ftemp[k];
         allfit_spec[k] += scale*ftemp[k];
       }
 
-      print_trees("post second call to fit", t[iTree], xi, verbose, logger);
+      log_trees("post second call to fit", t[iTree], xi, verbose, logger);
       
       logger.stopContext();
     }
