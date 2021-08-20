@@ -277,7 +277,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   if(any(!is.finite(x_moderate))) stop("Non-numeric values in x_moderate")
   if(any(!is.finite(pihat))) stop("Non-numeric values in pihat")
   if(!all(sort(unique(z)) == c(0,1))) stop("z must be a vector of 0's and 1's, with at least one of each")
-  if(!(verbose %in% 0:3)) stop("verbose must be an integer from 0 to 3")
+  if(!(verbose %in% 0:4)) stop("verbose must be an integer from 0 to 4")
 
   if(length(unique(y))<5) warning("y appears to be discrete")
 

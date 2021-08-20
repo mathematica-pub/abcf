@@ -14,14 +14,23 @@ void update_trees(std::string context, std::vector<tree>& t,
                     double mscale, double bscale0, double bscale1,
                     RNG& gen, Logger& logger, bool verbose);
 
-void draw_scale(std::string context, double& scale, double scale_prec, double ww, double rw, RNG& gen, Logger& logger, bool verbose);
+void calculate_rwww(int start, int stop, double s2, double scale, double* allfit_spec, double* allfit_alt, std::vector<double>& y, double* w, double& ww, double& rw);
+
+void draw_scale(double& scale, double scale_prec, double ww, double rw, RNG& gen, Logger& logger, bool verbose);
 
 void draw_delta(std::vector<tree>& t, pinfo& pi, double& delta, RNG& gen);
 
-void update_scale(std::string context, std::vector<tree>& t, 
-                    double scale_prec, double spec_sd, bool b_half_normal,
-                    double sigma, double& mscale, double& bscale0, double& bscale1,
-                    double* allfit_spec, double* allfit_alt, pinfo& pi, double& delta,
+void update_pi(pinfo& pi, double spec_sd, double delta, int ntree, Logger& logger, bool verbose);
+
+void update_mscale(double& mscale, std::vector<tree>& t, 
+                    double scale_prec, double spec_sd, double sigma,
+                    double* allfit_con, double* allfit_mod, pinfo& pi, double& delta,
+                    std::vector<double>& y, double* w, 
+                    RNG& gen, Logger& logger, bool verbose);
+
+void update_bscale(double& bscale0, double& bscale1, std::vector<tree>& t, 
+                    double scale_prec, double spec_sd, bool b_half_normal, double sigma,
+                    double* allfit_con, double* allfit_mod, pinfo& pi, double& delta,
                     int ntrt, std::vector<double>& y, double* w, 
                     RNG& gen, Logger& logger, bool verbose);
 

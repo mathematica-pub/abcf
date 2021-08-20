@@ -125,17 +125,38 @@ void update_trees(std::string context, std::vector<tree>& t,
     }
 }
 
-void draw_scale(std::string context, double& scale, double scale_prec, double ww, double rw, RNG& gen, Logger& logger, bool verbose) {
-    logger.log("Drawing " + context);
+void calculate_rwww(int start, int stop, double s2, double scale, double* allfit_spec, double* allfit_alt, std::vector<double>& y, double* w, double& ww, double& rw) {
+    for(size_t k=start; k<stop; ++k) {
+        double scale_factor = (w[k]*allfit_spec[k]*allfit_spec[k])/(s2*scale*scale);
+        
+        if(scale_factor!=scale_factor) {
+          Rcpp::Rcout << " scale_factor " << scale_factor << endl;
+          Rcpp::stop("NaN in scale factor");
+        }
+
+        // numerator is what's unexplained by the other factor
+        double r = (y[k] - allfit_alt[k])*scale/allfit_spec[k];
+        
+        if(r!=r) {
+          Rcpp::Rcout << " individual " << k << " r " << r << endl;
+          Rcpp::stop("NaN in r");
+        }
+
+        ww += scale_factor;
+        rw += r*scale_factor;
+    }
+}
+
+void draw_scale(double& scale, double scale_prec, double ww, double rw, RNG& gen, Logger& logger, bool verbose) {
     logger.startContext();
 
     double scale_old = scale;
     double scale_fc_var = 1/(ww + scale_prec);
     scale = scale_fc_var*rw + gen.normal(0., 1.)*sqrt(scale_fc_var);
     if(verbose){
-        Rcpp::Rcout << "Original " << context << " : " << scale_old << "\n";
+        Rcpp::Rcout << "Original : " << scale_old << "\n";
         Rcpp::Rcout << "scale_prec : " << scale_prec << ", ww : " << ww << ", rw : " << rw << "\n";
-        Rcpp::Rcout << "New  " << context << " : " << scale << "\n\n";
+        Rcpp::Rcout << "New : " << scale << "\n\n";
     }
     logger.stopContext();
 }
@@ -160,77 +181,7 @@ void draw_delta(std::vector<tree>& t, pinfo& pi, double& delta, RNG& gen) {
   delta = gen.gamma(0.5*(1. + endnode_count), 1.0)/(0.5*(1 + ssq));
 }
 
-// Annoying to have to put in all 3 scales, even if only working on one of them.
-// For allfit - "spec" = applicable allfit (con for m, mod for b), alt = opposite allfit (mod for m, con for b)
-void update_scale(std::string context, std::vector<tree>& t, 
-                    double scale_prec, double spec_sd, bool b_half_normal,
-                    double sigma, double& mscale, double& bscale0, double& bscale1,
-                    double* allfit_spec, double* allfit_alt, pinfo& pi, double& delta,
-                    int ntrt, std::vector<double>& y, double* w, 
-                    RNG& gen, Logger& logger, bool verbose) {
-    
-    // Basics
-    int n = y.size();
-    int ntree = t.size();
-    char logBuff[100];
-
-    if (context!="mscale" && context!="bscale") {
-        Rcpp::stop("context must be mscale or bscale");
-    }
-
-    double ww = 0.0, ww0 = 0.0, ww1 = 0.;
-    double rw = 0.0, rw0 = 0.0, rw1 = 0.;
-    double s2 = sigma*sigma;
-
-    for(size_t k=0; k<n; ++k) {
-        double scale = (context=="mscale") ? mscale : (k<ntrt) ? bscale1 : bscale0;
-        double scale_factor = (w[k]*allfit_spec[k]*allfit_spec[k])/(s2*scale*scale);
-        
-        if(scale_factor!=scale_factor) {
-          Rcpp::Rcout << " scale_factor " << scale_factor << endl;
-          Rcpp::stop("NaN in scale factor");
-        }
-
-        // numerator is what's unexplained by the other factor
-        double r = (y[k] - allfit_alt[k])*scale/allfit_spec[k];
-        
-        if(r!=r) {
-          Rcpp::Rcout << " individual " << k << " r " << r << endl;
-          Rcpp::stop("NaN in r");
-        }
-
-        if(context=="mscale") {
-          ww += scale_factor;
-          rw += r*scale_factor;
-        } else if(k<ntrt) {
-          ww1 += scale_factor;
-          rw1 += r*scale_factor;
-        } else {
-          ww0 += scale_factor;
-          rw0 += r*scale_factor;
-        }
-    }
-
-    double mscale_old, bscale0_old, bscale1_old;
-    if(context=="mscale") {
-        mscale_old = mscale;
-        draw_scale("mscale", mscale, scale_prec, ww, rw, gen, logger, verbose);
-    } else {
-        bscale0_old = bscale0;
-        bscale1_old = bscale1;
-        draw_scale("bscale1", bscale1, scale_prec, ww1, rw1, gen, logger, verbose);
-        draw_scale("bscale0", bscale0, scale_prec, ww0, rw0, gen, logger, verbose);
-    }
-
-    for(size_t k=0; k<n; ++k) {
-        double scale_ratio = (context=="mscale") ? mscale/mscale_old : (k<ntrt) ? bscale1/bscale1_old : bscale0/bscale0_old;
-        allfit_spec[k] = allfit_spec[k]*scale_ratio;
-    }
-
-    if(context=="mscale" || !b_half_normal) {
-       draw_delta(t, pi, delta, gen) ;
-    }
-
+void update_pi(pinfo& pi, double spec_sd, double delta, int ntree, Logger& logger, bool verbose) {
     if(verbose){
         logger.log("Updating pi.tau");
         Rcpp::Rcout << "Original pi.tau : " <<  pi.tau << "\n";
@@ -241,6 +192,69 @@ void update_scale(std::string context, std::vector<tree>& t,
     if(verbose){
         Rcpp::Rcout << "New pi.tau : " <<  pi.tau << "\n\n";
     }
+}
+
+void update_mscale(double& mscale, std::vector<tree>& t, 
+                    double scale_prec, double spec_sd, double sigma,
+                    double* allfit_con, double* allfit_mod, pinfo& pi, double& delta,
+                    std::vector<double>& y, double* w, 
+                    RNG& gen, Logger& logger, bool verbose) {
+    int n = y.size();
+    int ntree = t.size();
+    char logBuff[100];
+
+    double ww = 0.0;
+    double rw = 0.0;
+    double s2 = sigma*sigma;
+
+    calculate_rwww(0, n, s2, mscale, allfit_con, allfit_mod, y, w, ww, rw);
+
+    double mscale_old = mscale;
+    logger.log("Drawing mscale");
+    draw_scale(mscale, scale_prec, ww, rw, gen, logger, verbose);
+
+    for(size_t k=0; k<n; ++k) {
+        allfit_con[k] = allfit_con[k] * mscale / mscale_old;
+    }
+
+    draw_delta(t, pi, delta, gen) ;
+    
+    update_pi(pi, spec_sd, delta, ntree, logger, verbose);
+}
+
+void update_bscale(double& bscale0, double& bscale1, std::vector<tree>& t, 
+                    double scale_prec, double spec_sd, bool b_half_normal, double sigma,
+                    double* allfit_con, double* allfit_mod, pinfo& pi, double& delta,
+                    int ntrt, std::vector<double>& y, double* w, 
+                    RNG& gen, Logger& logger, bool verbose) {
+    int n = y.size();
+    int ntree = t.size();
+    char logBuff[100];
+
+    double ww0 = 0.0, ww1 = 0.0;
+    double rw0 = 0.0, rw1 = 0.0;
+    double s2 = sigma*sigma;
+
+    calculate_rwww(0, ntrt, s2, bscale1, allfit_mod, allfit_con, y, w, ww1, rw1);
+    calculate_rwww(ntrt, n, s2, bscale0, allfit_mod, allfit_con, y, w, ww0, rw0);
+
+    double bscale0_old = bscale0;
+    double bscale1_old = bscale1;
+    logger.log("Drawing bscale1");
+    draw_scale(bscale1, scale_prec, ww1, rw1, gen, logger, verbose);
+    logger.log("Drawing bscale0");
+    draw_scale(bscale0, scale_prec, ww0, rw0, gen, logger, verbose);
+
+    for(size_t k=0; k<n; ++k) {
+        double scale_ratio = (k<ntrt) ? bscale1/bscale1_old : bscale0/bscale0_old;
+        allfit_mod[k] = allfit_mod[k]*scale_ratio;
+    }
+
+    if(!b_half_normal) {
+       draw_delta(t, pi, delta, gen) ;
+    }
+
+    update_pi(pi, spec_sd, delta, ntree, logger, verbose);
 }
 
 void update_sigma(std::vector<double>& y, double* w, double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, RNG& gen, Logger& logger) {

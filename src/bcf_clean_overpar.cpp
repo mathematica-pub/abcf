@@ -305,11 +305,11 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
   logger.setLevel(0);
 
-  bool printTrees = verbose==3;
+  bool printTrees = verbose > 2;
 
   for(size_t iIter=0;iIter<(nd*thin+burn);iIter++) {
     // Only log iters that will be saved, and only if desired
-    verbose_itr = verbose >= 2 && (iIter>=burn) && (iIter % thin==0);
+    verbose_itr = (verbose >= 2 && (iIter>=burn) && (iIter % thin==0)) || verbose==4;
 
     if(verbose > 0){
         if(iIter%status_interval==0) {
@@ -347,11 +347,15 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     logger.log("=====================================");
 
     if(use_bscale) {
-      update_scale("bscale", t_mod, bscale_prec, mod_sd, b_half_normal, sigma, mscale, bscale0, bscale1, allfit_mod, allfit_con, pi_mod, delta_mod, ntrt, y, w, gen, logger, verbose_itr);
+      update_bscale(bscale0, bscale1, t_mod, bscale_prec, mod_sd, b_half_normal, sigma,
+                    allfit_con, allfit_mod, pi_mod, delta_mod,
+                    ntrt, y, w, gen, logger, verbose_itr);
     }
 
     if(use_mscale) {
-     update_scale("mscale", t_con, mscale_prec, con_sd, b_half_normal, sigma, mscale, bscale0, bscale1, allfit_con, allfit_mod, pi_con, delta_con, ntrt, y, w, gen, logger, verbose_itr);
+     update_mscale(mscale, t_con, mscale_prec, con_sd, sigma, 
+                    allfit_con, allfit_mod, pi_con, delta_con,
+                    y, w, gen, logger, verbose_itr);
     }
 
     if(use_mscale || use_bscale) {
