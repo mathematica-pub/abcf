@@ -40,7 +40,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   CharacterVector treef_con_name_, CharacterVector treef_mod_name_,
                   int status_interval=100,
                   bool RJ= false, bool use_mscale=true, bool use_bscale=true, bool b_half_normal=true,
-                  double trt_init = 1.0, bool verbose_sigma=false)
+                  double trt_init = 1.0, int verbose=1)
 {
 
   std::ofstream treef_con;
@@ -70,8 +70,8 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   Logger logger = Logger();  
   char logBuff[100];
 
-  bool log_level = false;
-  log_level = true;
+  // Logger only used for detailed logging
+  bool log_level = verbose > 1;
 
   logger.setLevel(log_level);
   
@@ -298,22 +298,20 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   int time1 = time(&tp);
 
   size_t save_ctr = 0;
-  bool verbose_itr = false; 
+  bool verbose_itr; 
 
   double* weight      = new double[n];
   double* weight_het  = new double[n];
 
   logger.setLevel(0);
 
-  bool printTrees = false;
-  printTrees = true;
+  bool printTrees = verbose==3;
 
   for(size_t iIter=0;iIter<(nd*thin+burn);iIter++) {
-    // verbose_itr = iIter>=burn;
-    verbose_itr = false;
-    verbose_itr = true;
+    // Only log iters that will be saved, and only if desired
+    verbose_itr = verbose >= 2 && (iIter>=burn) && (iIter % thin==0);
 
-    if(verbose_sigma){
+    if(verbose > 0){
         if(iIter%status_interval==0) {
             Rcout << "iteration: " << iIter << " sigma/SD(y): "<< sigma << endl;
         }

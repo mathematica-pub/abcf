@@ -130,7 +130,9 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
 #' or "both" are HIGHLY recommended with observational data.
 #' @param use_muscale Use a half-Cauchy hyperprior on the scale of mu.
 #' @param use_tauscale Use a half-Normal prior on the scale of tau.
-#' @param verbose logical, whether to print log of MCMC iterations, defaults to TRUE.
+#' @param verbose Integer, whether to print log of MCMC iterations, defaults to 1 - basic logging of iteration progress. 
+#' Setting to 0 disables logging, while setting to 2 enables logging of detailed statistics each iteration, 
+#' and setting to 3 enables logging of individual trees.
 #' @return A fitted bcf object that is a list with elements
 #' \item{tau}{\code{nsim} by \code{n} matrix of posterior samples of individual-level treatment effect estimates}
 #' \item{mu}{\code{nsim} by \code{n} matrix of posterior samples of prognostic function E(Y|Z=0, x=x) estimates}
@@ -236,7 +238,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 save_tree_directory = '.',
                 log_file=file.path('.',sprintf('bcf_log_%s.txt',format(Sys.time(), "%Y%m%d_%H%M%S"))),
                 nu = 3, lambda = NULL, sigq = .9, sighat = NULL,
-                include_pi = "control", use_muscale=TRUE, use_tauscale=TRUE, verbose=TRUE
+                include_pi = "control", use_muscale=TRUE, use_tauscale=TRUE, verbose=1
 ) {
 
 
@@ -275,6 +277,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   if(any(!is.finite(x_moderate))) stop("Non-numeric values in x_moderate")
   if(any(!is.finite(pihat))) stop("Non-numeric values in pihat")
   if(!all(sort(unique(z)) == c(0,1))) stop("z must be a vector of 0's and 1's, with at least one of each")
+  if(!(verbose %in% 0:3)) stop("verbose must be an integer from 0 to 3")
 
   if(length(unique(y))<5) warning("y appears to be discrete")
 
@@ -352,7 +355,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                                  treef_mod_name_ = tree_files$mod_trees,
                                  status_interval = update_interval,
                                  use_mscale = use_muscale, use_bscale = use_tauscale,
-                                 b_half_normal = TRUE, verbose_sigma=verbose)
+                                 b_half_normal = TRUE, verbose=verbose)
 
     cat("bcfoverparRcppClean returned to R\n")
 
