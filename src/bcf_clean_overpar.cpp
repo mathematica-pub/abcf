@@ -338,9 +338,19 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     logger.log("- Tree Processing");
     logger.log("=====================================");
 
-    update_trees("control", t_con, xi_con, di_con, pi_con, ntrt, weight, z_, y, allfit, allfit_con, r_con, mscale, bscale0, bscale1, gen, logger, verbose_itr && printTrees);
+    update_tree_args con_update_args = {.context="control", .t=t_con, .xi=xi_con, .di=di_con, .pi=pi_con, 
+                                        .ntrt=ntrt, .weight=weight, .z_=z_, .y=y, 
+                                        .allfit=allfit, .allfit_spec=allfit_con, .ri=r_con, 
+                                        .mscale=mscale, .bscale0=bscale0, .bscale1=bscale1, 
+                                        .gen=gen, .logger=logger, .verbose=verbose_itr && printTrees};
+    update_trees(con_update_args);
 
-    update_trees("moderate", t_mod, xi_mod, di_mod, pi_mod, ntrt, weight_het, z_, y, allfit, allfit_mod, r_mod, mscale, bscale0, bscale1, gen, logger, verbose_itr && printTrees);
+    update_tree_args mod_update_args = {.context="moderate", .t=t_mod, .xi=xi_mod, .di=di_mod, .pi=pi_mod, 
+                                        .ntrt=ntrt, .weight=weight_het, .z_=z_, .y=y, 
+                                        .allfit=allfit, .allfit_spec=allfit_mod, .ri=r_mod, 
+                                        .mscale=mscale, .bscale0=bscale0, .bscale1=bscale1, 
+                                        .gen=gen, .logger=logger, .verbose=verbose_itr && printTrees};
+    update_trees(mod_update_args);
 
     logger.log("=====================================");
     logger.log("- MCMC iteration Cleanup");

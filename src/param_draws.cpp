@@ -16,12 +16,25 @@ void log_trees(std::string step, tree& t, xinfo& xi, bool verbose, Logger& logge
 }
 
 // Desired behavior of verbose is unclear to me, since it is hardcoded originally.
-void update_trees(std::string context, std::vector<tree>& t, 
-                    xinfo& xi, dinfo& di, pinfo& pi,
-                    int ntrt, double* weight, Rcpp::NumericVector& z_, std::vector<double>& y,
-                    double* allfit, double* allfit_spec, double* ri, 
-                    double mscale, double bscale0, double bscale1,
-                    RNG& gen, Logger& logger, bool verbose) {
+void update_trees(update_tree_args& args) {
+    std::string context = args.context;
+    std::vector<tree>& t = args.t;
+    xinfo& xi = args.xi;
+    dinfo& di = args.di;
+    pinfo& pi = args.pi;
+    int ntrt = args.ntrt;
+    double* weight = args.weight;
+    Rcpp::NumericVector& z_ = args.z_;
+    std::vector<double>& y = args.y;
+    double* allfit = args.allfit;
+    double* allfit_spec = args.allfit_spec;
+    double* ri = args.ri;
+    double mscale = args.mscale;
+    double bscale0 = args.bscale0;
+    double bscale1 = args.bscale1;
+    RNG& gen = args.gen;
+    Logger& logger = args.logger;
+    bool verbose = args.verbose;
     // No need to pass these from parent
     int n = y.size();
     int ntree = t.size();

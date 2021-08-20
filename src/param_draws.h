@@ -7,12 +7,28 @@
 
 void log_trees(std::string step, tree& t, xinfo& xi, bool verbose, Logger& logger);
 
-void update_trees(std::string context, std::vector<tree>& t, 
-                    xinfo& xi, dinfo& di, pinfo& pi, 
-                    int ntrt, double* weight, Rcpp::NumericVector& z_, std::vector<double>& y,
-                    double* allfit, double* allfit_spec, double* ri, 
-                    double mscale, double bscale0, double bscale1,
-                    RNG& gen, Logger& logger, bool verbose);
+struct update_tree_args {
+    std::string context;
+    std::vector<tree>& t;
+    xinfo& xi;
+    dinfo& di;
+    pinfo& pi;
+    int ntrt;
+    double* weight;
+    Rcpp::NumericVector& z_;
+    std::vector<double>& y;
+    double* allfit;
+    double* allfit_spec;
+    double* ri;
+    double mscale;
+    double bscale0;
+    double bscale1;
+    RNG& gen;
+    Logger& logger;
+    bool verbose;
+};
+
+void update_trees(update_tree_args& args);
 
 void calculate_rwww(int start, int stop, double s2, double scale, double* allfit_spec, double* allfit_alt, std::vector<double>& y, double* w, double& ww, double& rw);
 
