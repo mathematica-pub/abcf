@@ -263,6 +263,7 @@ void update_bscale(double& bscale0, double& bscale1, std::vector<tree>& t,
         allfit_mod[k] = allfit_mod[k]*scale_ratio;
     }
 
+    // Not currently accesible from R - hardcoded to true
     if(!b_half_normal) {
        draw_delta(t, pi, delta, gen) ;
     }

@@ -172,12 +172,9 @@ double fit_i_mult(T i, std::vector<tree>& t, xinfo& xi, dinfo& di)
 void partition(tree& t, xinfo& xi, dinfo& di, std::vector<size_t>& pv);
 //--------------------------------------------------
 // draw all the bottom node mu's
-#ifdef MPIBART
-void MPImasterdrmu(tree& t, xinfo& xi, pinfo& pi, RNG& gen, size_t numslaves);
-#else
 void drmu(tree& t, xinfo& xi, dinfo& di, pinfo& pi, double* weight, RNG& gen);
 void drphi(tree& t, xinfo& xi, dinfo& di, pinfo& pi, RNG& gen);
-#endif
+
 //--------------------------------------------------
 //write cutpoint information to screen
 void prxi(xinfo& xi);

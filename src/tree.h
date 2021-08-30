@@ -85,13 +85,6 @@ public:
    friend bool merge3nt(tree::tree_p tl, tree::tree_p tr, size_t v, size_t c, int* nways);
    friend bool merge2triv(tree::tree_p tl, tree::tree_p tr, tree::tree_p t, size_t v, size_t c);
 
-#ifdef MPIBART
-   friend bool bd(tree& x, xinfo& xi, pinfo& pi, RNG& gen, size_t numslaves);
-   friend void pertcv(tree& x, xinfo& xi, pinfo& pi, RNG& gen, size_t numslaves);
-   friend void chgv(tree& x, xinfo& xi, pinfo& pi, RNG& gen, size_t numslaves);
-   friend bool rjbd(tree& x, xinfo& xi, pinfo& pi, RNG& gen, size_t numslaves);
-   friend bool rotp(tree::tree_p tnew, tree& x, xinfo& xi, pinfo& pi, RNG& gen, tree::npv& rnodes, size_t numslaves);
-#else
    //my functions
    friend bool bd(tree& x, xinfo& xi, dinfo& di, double* phi, pinfo& pi, RNG& gen, Logger logger);
    friend bool rotphet(tree::tree_p tnew, tree& x, xinfo& xi, dinfo& di, double* phi, pinfo& pi, RNG& gen);
@@ -100,13 +93,9 @@ public:
    friend void chgv(tree& x, xinfo& xi, dinfo& di, pinfo& pi, RNG& gen);
    friend bool rjbd(tree& x, xinfo& xi, dinfo& di, pinfo& pi, RNG& gen);
    friend bool rotp(tree::tree_p tnew, tree& x, xinfo& xi, dinfo& di, pinfo& pi, RNG& gen);
-#endif
 
 #ifdef CALIBART
-#ifdef MPIBART
-   friend bool bd(tree& x, xinfo& xi, pinfo& pi, RNG& gen, size_t numslaves);
-   friend void calipertcv(tree& x, xinfo& xi, pinfo& pi, RNG& gen, size_t numslaves);
-#elif CALIBIAS
+#ifdef CALIBIAS
    friend bool calibiasbd(tree& x, xinfo& xi, dinfo& di, pinfo& pi, RNG& gen);
    friend void calibiaspertcv(tree& x, xinfo& xi, dinfo& di, pinfo& pi, RNG& gen);
    friend void calibiaschgv(tree& x, xinfo& xi, dinfo& di, pinfo& pi, RNG& gen);
