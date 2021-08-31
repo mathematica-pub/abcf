@@ -307,6 +307,37 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
   bool printTrees = verbose > 2;
 
+  // General info - shortcut for passing to functions
+  ginfo ginfo = {.n       = n,
+                 .ntrt    = ntrt,
+                 .z_      = z_,
+                 .y       = y,
+                 .w       = w,
+                 .gen     = gen,
+                 .logger  = logger};
+
+  winfo wi_con = {.ntree      = ntree_con,
+                  .t          = t_con,
+                  .sd         = con_sd,
+                  .scale_prec = mscale_prec,
+                  .xi         = xi_con, 
+                  .di         = di_con, 
+                  .pi         = pi_con,
+                  .ri         = r_con,
+                  .weight     = weight,
+                  .delta      = delta_con};
+
+  winfo wi_mod = {.ntree      = ntree_mod,
+                  .t          = t_mod,
+                  .sd         = mod_sd,
+                  .scale_prec = bscale_prec,
+                  .xi         = xi_mod, 
+                  .di         = di_mod, 
+                  .pi         = pi_mod,
+                  .ri         = r_mod,
+                  .weight     = weight_het,
+                  .delta      = delta_mod};
+
   for(size_t iIter=0;iIter<(nd*thin+burn);iIter++) {
     // Only log iters that will be saved, and only if desired
     verbose_itr = (verbose >= 2 && (iIter>=burn) && (iIter % thin==0)) || verbose==4;
@@ -338,34 +369,31 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     logger.log("- Tree Processing");
     logger.log("=====================================");
 
-    update_tree_args con_update_args = {.context="control", .t=t_con, .xi=xi_con, .di=di_con, .pi=pi_con, 
-                                        .ntrt=ntrt, .weight=weight, .z_=z_, .y=y, 
-                                        .allfit=allfit, .allfit_spec=allfit_con, .ri=r_con, 
-                                        .mscale=mscale, .bscale0=bscale0, .bscale1=bscale1, 
-                                        .gen=gen, .logger=logger, .verbose=verbose_itr && printTrees};
-    update_trees(con_update_args);
+    update_trees("control",  
+                  allfit, allfit_con, 
+                  mscale, bscale0, bscale1,
+                  ginfo, wi_con, verbose_itr && printTrees);
 
-    update_tree_args mod_update_args = {.context="moderate", .t=t_mod, .xi=xi_mod, .di=di_mod, .pi=pi_mod, 
-                                        .ntrt=ntrt, .weight=weight_het, .z_=z_, .y=y, 
-                                        .allfit=allfit, .allfit_spec=allfit_mod, .ri=r_mod, 
-                                        .mscale=mscale, .bscale0=bscale0, .bscale1=bscale1, 
-                                        .gen=gen, .logger=logger, .verbose=verbose_itr && printTrees};
-    update_trees(mod_update_args);
+    update_trees("moderate",  
+                  allfit, allfit_mod, 
+                  mscale, bscale0, bscale1,
+                  ginfo, wi_mod, verbose_itr && printTrees);
 
     logger.log("=====================================");
     logger.log("- MCMC iteration Cleanup");
     logger.log("=====================================");
 
     if(use_bscale) {
-      update_bscale(bscale0, bscale1, t_mod, bscale_prec, mod_sd, b_half_normal, sigma,
-                    allfit_con, allfit_mod, pi_mod, delta_mod,
-                    ntrt, y, w, gen, logger, verbose_itr);
+      update_bscale(bscale0, bscale1, 
+                    b_half_normal, sigma,
+                    allfit_con, allfit_mod,
+                    ginfo, wi_mod, verbose_itr);
     }
 
     if(use_mscale) {
-     update_mscale(mscale, t_con, mscale_prec, con_sd, sigma, 
-                    allfit_con, allfit_mod, pi_con, delta_con,
-                    y, w, gen, logger, verbose_itr);
+     update_mscale(mscale, sigma, 
+                    allfit_con, allfit_mod,
+                    ginfo, wi_con, verbose_itr);
     }
 
     if(use_mscale || use_bscale) {
@@ -375,7 +403,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       }
     }
 
-    update_sigma(y, w, allfit, sigma, nu, lambda, mscale, pi_con, pi_mod, gen, logger);
+    update_sigma(allfit, sigma, nu, lambda, mscale, pi_con, pi_mod, ginfo);
 
     if( ((iIter>=burn) & (iIter % thin==0)) )  {
       if(not treef_con_name.empty()){
