@@ -307,6 +307,14 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
   bool printTrees = verbose > 2;
 
+  // Vector of references to which scale applies to each individual
+  std::vector<std::reference_wrapper<double>> mscale_idx;
+  std::vector<std::reference_wrapper<double>> bscale_idx;
+  for (size_t i=0;i<n;i++) {
+    mscale_idx.push_back(mscale);
+    bscale_idx.push_back(i<ntrt ? bscale1 : bscale0);
+  }
+
   // General info - shortcut for passing to functions
   ginfo ginfo = {.n       = n,
                  .ntrt    = ntrt,
@@ -320,6 +328,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   .t          = t_con,
                   .sd         = con_sd,
                   .scale_prec = mscale_prec,
+                  .scale_idx  = mscale_idx,
                   .xi         = xi_con, 
                   .di         = di_con, 
                   .pi         = pi_con,
@@ -331,6 +340,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   .t          = t_mod,
                   .sd         = mod_sd,
                   .scale_prec = bscale_prec,
+                  .scale_idx  = bscale_idx,
                   .xi         = xi_mod, 
                   .di         = di_mod, 
                   .pi         = pi_mod,

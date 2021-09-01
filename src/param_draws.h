@@ -27,6 +27,7 @@ struct winfo {
    std::vector<tree>& t;
    double sd;
    double scale_prec;
+   std::vector<std::reference_wrapper<double>> scale_idx;
    xinfo& xi;
    dinfo& di;
    pinfo& pi;

@@ -23,10 +23,6 @@ void update_trees(std::string context,
     char logBuff[100];
     double* ftemp  = new double[gi.n];
 
-    if (context!="control" && context!="moderate") {
-        Rcpp::stop("context must be control or moderate");
-    }
-
     for(size_t iTree=0;iTree<wi.ntree;iTree++) {
 
       gi.logger.log("==================================");
@@ -51,17 +47,14 @@ void update_trees(std::string context,
           Rcpp::stop("nan in ftemp");
         }
 
-        // If we're updating control trees, use mscale; otherwise use bscale1 for treats and bscale0 for controls
-        double scale = (context=="control") ? mscale : (k<gi.ntrt) ? bscale1 : bscale0;
-
-        allfit[k]      = allfit[k]      -scale*ftemp[k];
-        allfit_spec[k] = allfit_spec[k] -scale*ftemp[k];
+        allfit[k]      = allfit[k]      -wi.scale_idx[k]*ftemp[k];
+        allfit_spec[k] = allfit_spec[k] -wi.scale_idx[k]*ftemp[k];
         
-        wi.ri[k] = (gi.y[k]-allfit[k])/scale;
+        wi.ri[k] = (gi.y[k]-allfit[k])/wi.scale_idx[k];
 
         if(wi.ri[k] != wi.ri[k]) {
           Rcpp::Rcout << (gi.y[k]-allfit[k]) << std::endl;
-          Rcpp::Rcout << scale << std::endl;
+          Rcpp::Rcout << wi.scale_idx[k] << std::endl;
           Rcpp::Rcout << wi.ri[k] << std::endl;
           Rcpp::stop("NaN in resid");
         }
@@ -107,10 +100,8 @@ void update_trees(std::string context,
           ftemp);
 
       for(size_t k=0;k<gi.n;k++) {
-        // If we;re updating control trees, use mscale; otherwise use bscale1 for treats and bscale0 for controls
-        double scale = (context=="control") ? mscale : (k<gi.ntrt) ? bscale1 : bscale0;
-        allfit[k] += scale*ftemp[k];
-        allfit_spec[k] += scale*ftemp[k];
+        allfit[k] += wi.scale_idx[k]*ftemp[k];
+        allfit_spec[k] += wi.scale_idx[k]*ftemp[k];
       }
 
       log_trees("post second call to fit", wi.t[iTree], wi.xi, verbose, gi.logger);
