@@ -11,6 +11,7 @@
 #include "funs.h"
 #include "bd.h"
 #include "logging.h"
+#include "param_draws.h"
 
 using namespace Rcpp;
 // Rstudios check's suggest not ignoring these
@@ -29,9 +30,6 @@ using namespace Rcpp;
 List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   NumericVector x_con_, NumericVector x_mod_, 
                   List x_con_info_list, List x_mod_info_list, 
-                  arma::mat random_des, //needs to come in with n rows no matter what(?)
-                  arma::mat random_var, arma::mat random_var_ix, //random_var_ix*random_var = diag(Var(random effects))
-                  double random_var_df,
                   int burn, int nd, int thin, //Draw nd*thin + burn samples, saving nd draws after burn-in
                   int ntree_mod, int ntree_con,
                   double lambda, double nu, //prior pars for sigma^2_y
@@ -42,16 +40,9 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   CharacterVector treef_con_name_, CharacterVector treef_mod_name_,
                   int status_interval=100,
                   bool RJ= false, bool use_mscale=true, bool use_bscale=true, bool b_half_normal=true,
-                  double trt_init = 1.0, bool verbose_sigma=false)
+                  double trt_init = 1.0, int verbose=1)
 {
 
-  bool randeff = true;
-  if(random_var_ix.n_elem == 1) {
-    randeff = false;
-  }
-
-  if(randeff) Rcout << "Using random effects." << std::endl;
-  
   std::ofstream treef_con;
   std::ofstream treef_mod;
   
@@ -79,9 +70,11 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   Logger logger = Logger();  
   char logBuff[100];
 
-  bool log_level = false;
+  // Logger only used for detailed logging
+  bool log_level = verbose > 1;
 
   logger.setLevel(log_level);
+  
   logger.log("============================================================");
   logger.log(" Starting up BCF: ");
   logger.log("============================================================");
@@ -93,7 +86,6 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     logger.getVectorHead(w_, logBuff);
     Rcout << "w: " <<  logBuff << "\n";
   }
-
 
   logger.log("BCF is Weighted");
 
@@ -258,36 +250,12 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   di_mod.y = r_mod; //the y for each draw will be the residual
 
   //--------------------------------------------------
-  //setup for random effects
-  size_t random_dim = random_des.n_cols;
-  int nr=1;
-  if(randeff) nr = n;
-
-  arma::vec r(nr); //working residuals
-  arma::vec Wtr(random_dim); // W'r
-
-  arma::mat WtW = random_des.t()*random_des; //W'W
-  arma::mat Sigma_inv_random = diagmat(1/(random_var_ix*random_var));
-
-  // PX parameters
-  arma::vec eta(random_var_ix.n_cols); //random_var_ix is num random effects by num variance components
-  eta.fill(1.0);
-
-  for(size_t k=0; k<nr; ++k) {
-    r(k) = y[k] - allfit_con[k] - allfit_mod[k];
-  }
-
-  Wtr = random_des.t()*r;
-  arma::vec gamma = solve(WtW/(sigma*sigma)+Sigma_inv_random, Wtr/(sigma*sigma));
-  arma::vec allfit_random = random_des*gamma;
-  if(!randeff) allfit_random.fill(0);
 
   //--------------------------------------------------
   //storage for the fits
   double* allfit = new double[n]; //yhat
   for(size_t i=0;i<n;i++) {
     allfit[i] = allfit_mod[i] + allfit_con[i];
-    if(randeff) allfit[i] += allfit_random[i];
   }
   double* ftemp  = new double[n]; //fit of current tree
 
@@ -299,8 +267,6 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   NumericMatrix m_post(nd,n);
   NumericMatrix yhat_post(nd,n);
   NumericMatrix b_post(nd,n);
-  arma::mat gamma_post(nd,gamma.n_elem);
-  arma::mat random_var_post(nd,random_var.n_elem);
 
   //  NumericMatrix spred2(nd,dip.n);
 
@@ -332,21 +298,61 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   int time1 = time(&tp);
 
   size_t save_ctr = 0;
-  bool verbose_itr = false; 
-
+  bool verbose_itr; 
 
   double* weight      = new double[n];
   double* weight_het  = new double[n];
 
   logger.setLevel(0);
 
-  bool printTrees = false;
+  bool printTrees = verbose > 2;
+
+  // Vector of references to which scale applies to each individual
+  std::vector<std::reference_wrapper<double>> mscale_idx;
+  std::vector<std::reference_wrapper<double>> bscale_idx;
+  for (size_t i=0;i<n;i++) {
+    mscale_idx.push_back(mscale);
+    bscale_idx.push_back(i<ntrt ? bscale1 : bscale0);
+  }
+
+  // General info - shortcut for passing to functions
+  ginfo ginfo = {.n       = n,
+                 .ntrt    = ntrt,
+                 .z_      = z_,
+                 .y       = y,
+                 .w       = w,
+                 .gen     = gen,
+                 .logger  = logger};
+
+  winfo wi_con = {.ntree      = ntree_con,
+                  .t          = t_con,
+                  .sd         = con_sd,
+                  .scale_prec = mscale_prec,
+                  .scale_idx  = mscale_idx,
+                  .xi         = xi_con, 
+                  .di         = di_con, 
+                  .pi         = pi_con,
+                  .ri         = r_con,
+                  .weight     = weight,
+                  .delta      = delta_con};
+
+  winfo wi_mod = {.ntree      = ntree_mod,
+                  .t          = t_mod,
+                  .sd         = mod_sd,
+                  .scale_prec = bscale_prec,
+                  .scale_idx  = bscale_idx,
+                  .xi         = xi_mod, 
+                  .di         = di_mod, 
+                  .pi         = pi_mod,
+                  .ri         = r_mod,
+                  .weight     = weight_het,
+                  .delta      = delta_mod};
 
   for(size_t iIter=0;iIter<(nd*thin+burn);iIter++) {
-    // verbose_itr = iIter>=burn;
-    verbose_itr = false;
+    // Only log iters that will be saved, and only if desired
+    verbose_itr = (verbose >= 2 && (iIter>=burn) && (iIter % thin==0)) || verbose==4;
 
-    if(verbose_sigma){
+    if(verbose > 0){
         if(iIter%status_interval==0) {
             Rcout << "iteration: " << iIter << " sigma/SD(y): "<< sigma << endl;
         }
@@ -354,25 +360,9 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
     logger.setLevel(verbose_itr);
 
-    logger.log("==============================================");
-    sprintf(logBuff, "MCMC iteration: %d of %d Start", iIter + 1, nd*thin+burn);
-    logger.log(logBuff);
-    sprintf(logBuff, "sigma %f, mscale %f, bscale0 %f, bscale1 %f",sigma, mscale, bscale0, bscale1);
-    logger.log(logBuff);
-    logger.log("==============================================");
-    if (verbose_itr){
-      logger.getVectorHead(y, logBuff);
-      Rcout << "           y: " <<  logBuff << "\n";
-
-      logger.getVectorHead(allfit, logBuff);
-      Rcout << "Current Fit : " <<  logBuff << "\n";
-
-      logger.getVectorHead(allfit_con, logBuff);
-      Rcout << "allfit_con  : " <<  logBuff << "\n";
-
-      logger.getVectorHead(allfit_mod, logBuff);
-      Rcout << "allfit_mod  : " <<  logBuff << "\n";
-    }
+    log_iter("Start", iIter+1, nd*thin+burn, sigma, mscale, bscale0, bscale1, logger);
+    
+    log_fit(y, allfit, allfit_con, allfit_mod, logger, verbose_itr);
 
     for (int k=0; k<n; ++k){
       weight[k] = w[k]*mscale*mscale/(sigma * sigma); // for non-het case, weights need to be divided by sigma square to make it similar to phi
@@ -389,510 +379,41 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     logger.log("- Tree Processing");
     logger.log("=====================================");
 
-    //draw trees for m(x)
-    for(size_t iTreeCon=0;iTreeCon<ntree_con;iTreeCon++) {
+    update_trees("control",  
+                  allfit, allfit_con, 
+                  mscale, bscale0, bscale1,
+                  ginfo, wi_con, verbose_itr && printTrees);
 
-      logger.log("==================================");
-      sprintf(logBuff, "Updating Control Tree: %d of %d",iTreeCon + 1 , ntree_con);
-      logger.log(logBuff);
-      logger.log("==================================");
-      logger.startContext();
-
-      logger.log("Attempting to Print Tree Pre Update \n");
-      if(verbose_itr && printTrees){
-        t_con[iTreeCon].pr(xi_con);
-        Rcout << "\n\n";
-      }
-
-      fit(t_con[iTreeCon], // tree& t
-          xi_con, // xinfo& xi
-          di_con, // dinfo& di
-          ftemp); // std::vector<double>& fv
-
-
-      logger.log("Attempting to Print Tree Post first call to fit \n");
-      if(verbose_itr && printTrees){
-        t_con[iTreeCon].pr(xi_con);
-        Rcout << "\n\n";
-      }
-
-      for(size_t k=0;k<n;k++) {
-        if(ftemp[k] != ftemp[k]) {
-          Rcout << "control tree " << iTreeCon <<" obs "<< k<<" "<< endl;
-          Rcout << t_con[iTreeCon] << endl;
-          stop("nan in ftemp");
-        }
-
-        allfit[k]     = allfit[k]     -mscale*ftemp[k];
-        allfit_con[k] = allfit_con[k] -mscale*ftemp[k];
-        
-        r_con[k] = (y[k]-allfit[k])/mscale;
-
-        if(r_con[k] != r_con[k]) {
-          Rcout << (y[k]-allfit[k]) << endl;
-          Rcout << mscale << endl;
-          Rcout << r_con[k] << endl;
-          stop("NaN in resid");
-        }
-      }
-
-      
-
-      if(verbose_itr && printTrees){
-        logger.getVectorHead(weight, logBuff);
-        Rcout << "\n weight: " <<  logBuff << "\n\n";
-      } 
-      logger.log("Starting Birth / Death Processing");
-      logger.startContext();
-      bd(t_con[iTreeCon], // tree& x
-         xi_con, // xinfo& xi
-         di_con, // dinfo& di
-         weight, // phi
-         pi_con, // pinfo& pi
-         gen,
-         logger); // RNG& gen
-      logger.stopContext();
-
-      logger.log("Attempting to Print Tree Post db \n");
-      if(verbose_itr && printTrees){
-        t_con[iTreeCon].pr(xi_con);
-        Rcout << "\n";
-      }
-
-      if (verbose_itr && printTrees){
-        logger.log("Printing Current Status of Fit");
-
-        logger.getVectorHead(z_, logBuff);
-        // logger.log(logBuff);
-        Rcout << "\n          z : " <<  logBuff << "\n";
-
-        logger.getVectorHead(y, logBuff);
-        Rcout << "          y : " <<  logBuff << "\n";
-
-        logger.getVectorHead(allfit, logBuff);
-        Rcout << "Fit - Tree  : " <<  logBuff << "\n";
-
-        logger.getVectorHead(r_con, logBuff);
-        Rcout << "     r_con  : " <<  logBuff << "\n\n";
-
-        Rcout <<" MScale: " << mscale << "\n";
-
-        Rcout <<" bscale0 : " << bscale0 << "\n";
-
-        Rcout <<" bscale1 : " << bscale1 << "\n\n";
-
-      }
-      logger.log("Starting To Draw Mu");
-      logger.startContext();
-
-      drmu(t_con[iTreeCon],  // tree& x
-           xi_con, // xinfo& xi
-           di_con, // dinfo& di
-           pi_con, // pinfo& pi,
-           weight,
-           gen); // RNG& gen
-
-      logger.stopContext();
-
-      logger.log("Attempting to Print Tree Post drmu \n");
-      if(verbose_itr  && printTrees){
-        t_con[iTreeCon].pr(xi_con);
-        Rcout << "\n";
-      }
-
-      fit(t_con[iTreeCon],
-          xi_con,
-          di_con,
-          ftemp);
-
-      for(size_t k=0;k<n;k++) {
-        allfit[k] += mscale*ftemp[k];
-        allfit_con[k] += mscale*ftemp[k];
-      }
-
-      logger.log("Attempting to Print tree Post second call to fit \n");
-
-      if(verbose_itr && printTrees){
-        t_con[iTreeCon].pr(xi_con);
-        Rcout << "\n";
-
-      }
-      logger.stopContext();
-    }
-
-
-    for(size_t iTreeMod=0;iTreeMod<ntree_mod;iTreeMod++) {
-      logger.log("==================================");
-      sprintf(logBuff, "Updating Moderate Tree: %d of %d",iTreeMod + 1 , ntree_mod);
-      logger.log(logBuff);
-      logger.log("==================================");
-      logger.startContext();
-
-
-      logger.log("Attempting to Print Tree Pre Update \n");
-      if(verbose_itr && printTrees){
-        t_mod[iTreeMod].pr(xi_mod);
-        Rcout << "\n";
-      }
-
-      fit(t_mod[iTreeMod],
-          xi_mod,
-          di_mod,
-          ftemp);
-
-      logger.log("Attempting to Print Tree Post first call to fit");
-      if(verbose_itr && printTrees){
-        t_mod[iTreeMod].pr(xi_mod);
-        Rcout << "\n";
-      }
-
-      for(size_t k=0;k<n;k++) {
-        if(ftemp[k] != ftemp[k]) {
-          Rcout << "moderator tree " << iTreeMod <<" obs "<< k<<" "<< endl;
-          Rcout << t_mod[iTreeMod] << endl;
-          stop("nan in ftemp");
-        }
-        double bscale = (k<ntrt) ? bscale1 : bscale0;
-        allfit[k] = allfit[k]-bscale*ftemp[k];
-        allfit_mod[k] = allfit_mod[k]-bscale*ftemp[k];
-        r_mod[k] = (y[k]-allfit[k])/bscale;
-      }
-      logger.log("Starting Birth / Death Processing");
-      logger.startContext();
-      bd(t_mod[iTreeMod],
-         xi_mod,
-         di_mod,
-         weight_het,
-         pi_mod,
-         gen,
-         logger);
-      logger.stopContext();
-
-      logger.log("Attempting to Print Tree  Post bd \n");
-      if(verbose_itr && printTrees){
-        t_mod[iTreeMod].pr(xi_mod);
-        Rcout << "\n";
-      }
-
-      if (verbose_itr && printTrees){
-        logger.log("Printing Status of Fit");
-
-        logger.getVectorHead(z_, logBuff);
-        Rcout << "\n          z : " <<  logBuff << "\n";
-
-        logger.getVectorHead(y, logBuff);
-        Rcout << "          y : " <<  logBuff << "\n";
-
-        logger.getVectorHead(allfit, logBuff);
-        Rcout << "Fit - Tree  : " <<  logBuff << "\n";
-
-        logger.getVectorHead(r_mod, logBuff);
-        Rcout << "     r_mod  : " <<  logBuff << "\n\n";
-
-        Rcout <<" MScale: " << mscale << "\n";
-
-        Rcout <<" bscale0 : " << bscale0 << "\n";
-
-        Rcout <<" bscale1 : " << bscale1 << "\n\n";
-
-      }
-      logger.log("Starting To Draw Mu");
-      logger.startContext();
-      drmu(t_mod[iTreeMod],
-            xi_mod,
-            di_mod,
-            pi_mod,
-            weight_het,
-            gen);
-      logger.stopContext();
-      
-
-
-      logger.log("Attempting to Print Tree Post drmuhet \n");
-      if(verbose_itr && printTrees){
-        t_mod[iTreeMod].pr(xi_mod);
-        Rcout << "\n";
-      }
-
-      fit(t_mod[iTreeMod],
-          xi_mod,
-          di_mod,
-          ftemp);
-
-      for(size_t k=0;k<ntrt;k++) {
-        allfit[k] += bscale1*ftemp[k];
-        allfit_mod[k] += bscale1*ftemp[k];
-      }
-      for(size_t k=ntrt;k<n;k++) {
-        allfit[k] += bscale0*ftemp[k];
-        allfit_mod[k] += bscale0*ftemp[k];
-      }
-
-      logger.log("Attempting to Print Tree Post second call to fit");
-
-      if(verbose_itr && printTrees){
-        t_mod[iTreeMod].pr(xi_mod);
-        Rcout << "\n";
-      }
-      logger.stopContext();
-
-    } // end tree lop
-
-    logger.setLevel(verbose_itr);
+    update_trees("moderate",  
+                  allfit, allfit_mod, 
+                  mscale, bscale0, bscale1,
+                  ginfo, wi_mod, verbose_itr && printTrees);
 
     logger.log("=====================================");
     logger.log("- MCMC iteration Cleanup");
     logger.log("=====================================");
 
     if(use_bscale) {
-      double ww0 = 0.0, ww1 = 0.;
-      double rw0 = 0.0, rw1 = 0.;
-      double s2 = sigma*sigma;
-      for(size_t k=0; k<n; ++k) {
-        double bscale = (k<ntrt) ? bscale1 : bscale0;
-        double scale_factor = (w[k]*allfit_mod[k]*allfit_mod[k])/(s2*bscale*bscale);
-
-        if(scale_factor!=scale_factor) {
-          Rcout << " scale_factor " << scale_factor << endl;
-          stop("");
-        }
-
-        double randeff_contrib = randeff ? allfit_random[k] : 0.0;
-
-        double r = (y[k] - allfit_con[k] - randeff_contrib)*bscale/allfit_mod[k];
-
-        if(r!=r) {
-          Rcout << "bscale " << k << " r " << r << " mscale " <<mscale<< " b*z " << allfit_mod[k]*z_[k] << " bscale " << bscale0 << " " <<bscale1 << endl;
-          stop("");
-        }
-        if(k<ntrt) {
-          ww1 += scale_factor;
-          rw1 += r*scale_factor;
-        } else {
-          ww0 += scale_factor;
-          rw0 += r*scale_factor;
-        }
-      }
-      logger.log("Drawing bscale 1");
-      logger.startContext();
-      double bscale1_old = bscale1;
-      double bscale_fc_var = 1/(ww1 + bscale_prec);
-      bscale1 = bscale_fc_var*rw1 + gen.normal(0., 1.)*sqrt(bscale_fc_var);
-      if(verbose_itr){
-
-        Rcout << "Original bscale1 : " << bscale1_old << "\n";
-        Rcout << "bscale_prec : " << bscale_prec << ", ww1 : " << ww1 << ", rw1 : " << rw1 << "\n";
-        Rcout << "New  bscale1 : " << bscale1 << "\n\n";
-      }
-      logger.stopContext();
-
-
-      logger.log("Drawing bscale 0");
-      logger.startContext();
-      double bscale0_old = bscale0;
-      bscale_fc_var = 1/(ww0 + bscale_prec);
-      bscale0 = bscale_fc_var*rw0 + gen.normal(0., 1.)*sqrt(bscale_fc_var);
-      if(verbose_itr){
-        Rcout << "Original bscale0 : " << bscale0_old << "\n";
-        Rcout << "bscale_prec : " << bscale_prec << ", ww0 : " << ww0 << ", rw0 : " << rw0 << "\n";
-        Rcout << "New  bscale0 : " << bscale0 << "\n\n";
-      }
-      logger.stopContext();
-
-      for(size_t k=0; k<ntrt; ++k) {
-        allfit_mod[k] = allfit_mod[k]*bscale1/bscale1_old;
-      }
-      for(size_t k=ntrt; k<n; ++k) {
-        allfit_mod[k] = allfit_mod[k]*bscale0/bscale0_old;
-      }
-
-      if(!b_half_normal) {
-        double ssq = 0.0;
-        tree::npv bnv;
-        typedef tree::npv::size_type bvsz;
-        double endnode_count = 0.0;
-
-        for(size_t iTreeMod=0;iTreeMod<ntree_mod;iTreeMod++) {
-          bnv.clear();
-          t_mod[iTreeMod].getbots(bnv);
-          bvsz nb = bnv.size();
-          for(bvsz ii = 0; ii<nb; ++ii) {
-            double mm = bnv[ii]->getm(); //node parameter
-            ssq += mm*mm/(pi_mod.tau*pi_mod.tau);
-            endnode_count += 1.0;
-          }
-        }
-        delta_mod = gen.gamma(0.5*(1. + endnode_count), 1.0)/(0.5*(1 + ssq));
-      }
-      if(verbose_itr){
-        Rcout << "Original pi_mod.tau : " <<  pi_mod.tau << "\n";
-      }
-      
-      pi_mod.tau   = mod_sd/(sqrt(delta_mod)*sqrt((double) ntree_mod));
-      
-      if(verbose_itr){
-        Rcout << "New pi_mod.tau : " <<  pi_mod.tau << "\n\n";
-      }
-
-    } else {
-      bscale0 = -0.5;
-      bscale1 =  0.5;
+      update_bscale(bscale0, bscale1, 
+                    b_half_normal, sigma,
+                    allfit_con, allfit_mod,
+                    ginfo, wi_mod, verbose_itr);
     }
-    pi_mod.sigma = sigma;
-
 
     if(use_mscale) {
-      double ww = 0.;
-      double rw = 0.;
-      double s2 = sigma*sigma;
-      for(size_t k=0; k<n; ++k) {
-        double scale_factor = (w[k]*allfit_con[k]*allfit_con[k])/(s2*mscale*mscale);
-        if(scale_factor!=scale_factor) {
-          Rcout << " scale_factor " << scale_factor << endl;
-          stop("");
-        }
-
-        double randeff_contrib = randeff ? allfit_random[k] : 0.0;
-
-        double r = (y[k] - allfit_mod[k]- randeff_contrib)*mscale/allfit_con[k];
-        if(r!=r) {
-          Rcout << "mscale " << k << " r " << r << " mscale " <<mscale<< " b*z " << allfit_mod[k]*z_[k] << " bscale " << bscale0 << " " <<bscale1 << endl;
-          stop("");
-        }
-        ww += scale_factor;
-        rw += r*scale_factor;
-      }
-
-      logger.log("Drawing mscale");
-
-
-      double mscale_old = mscale;
-      double mscale_fc_var = 1/(ww + mscale_prec);
-      mscale = mscale_fc_var*rw + gen.normal(0., 1.)*sqrt(mscale_fc_var);
-      if(verbose_itr){
-        Rcout << "Original mscale : " << mscale_old << "\n";
-        Rcout << "mscale_prec : " << mscale_prec << ", ww : " << ww << ", rw : " << rw << "\n";
-        Rcout << "New  mscale : " << mscale << "\n\n";
-      }
-
-
-      //Rcout<< mscale_fc_var << " " << rw <<" " << mscale << endl;
-
-      for(size_t k=0; k<n; ++k) {
-        allfit_con[k] = allfit_con[k]*mscale/mscale_old;
-      }
-
-      // update delta_con
-
-      double ssq = 0.0;
-      tree::npv bnv;
-      typedef tree::npv::size_type bvsz;
-      double endnode_count = 0.0;
-
-      for(size_t iTreeCon=0;iTreeCon<ntree_con;iTreeCon++) {
-        bnv.clear();
-        t_con[iTreeCon].getbots(bnv);
-        bvsz nb = bnv.size();
-        for(bvsz ii = 0; ii<nb; ++ii) {
-          double mm = bnv[ii]->getm(); //node parameter
-          ssq += mm*mm/(pi_con.tau*pi_con.tau);
-          endnode_count += 1.0;
-        }
-      }
-
-      delta_con = gen.gamma(0.5*(1. + endnode_count), 1.0)/(0.5*(1 + ssq));
-      if(verbose_itr){
-        logger.log("Updating pi_con.tau");
-        Rcout << "Original pi_con.tau : " <<  pi_con.tau << "\n";
-      }
-      
-      pi_con.tau   = con_sd/(sqrt(delta_con)*sqrt((double) ntree_con));
-      
-      if(verbose_itr){
-        Rcout << "New pi_con.tau : " <<  pi_con.tau << "\n\n";
-      }
-      
-
-    } else {
-      mscale = 1.0;
+     update_mscale(mscale, sigma, 
+                    allfit_con, allfit_mod,
+                    ginfo, wi_con, verbose_itr);
     }
-    pi_con.sigma = sigma/fabs(mscale); //should be sigma/abs(mscale) for backfitting
 
-    //sync allfits after scale updates, if necessary. Could do smarter backfitting updates inline
     if(use_mscale || use_bscale) {
       logger.log("Sync allfits after scale updates");
-
       for(size_t k=0; k<n; ++k) {
-        double randeff_contrib = randeff ? allfit_random[k] : 0.0;
-        allfit[k] = allfit_con[k] + allfit_mod[k] + randeff_contrib;
+        allfit[k] = allfit_con[k] + allfit_mod[k];
       }
     }
 
-    if(randeff) {
-      Rcout << "==================================\n";
-      Rcout << "- Random Effects \n";
-      Rcout << "==================================\n";
-
-      //update random effects
-      for(size_t k=0; k<n; ++k) {
-        r(k) = y[k] - allfit_con[k] - allfit_mod[k];
-        allfit[k] -= allfit_random[k];
-      }
-
-      Wtr = random_des.t()*r;
-
-      arma::mat adj = diagmat(random_var_ix*eta);
-      //    Rcout << adj << endl << endl;
-      arma::mat Phi = adj*WtW*adj/(sigma*sigma) + Sigma_inv_random;
-      arma::vec m = adj*Wtr/(sigma*sigma);
-      //Rcout << m << Phi << endl << Sigma_inv_random;
-      gamma = rmvnorm_post(m, Phi);
-
-      //Rcout << "updated gamma";
-
-      // Update px parameters eta
-
-      arma::mat adj2 = diagmat(gamma)*random_var_ix;
-      arma::mat Phi2 = adj2.t()*WtW*adj2/(sigma*sigma) + arma::eye(eta.size(), eta.size());
-      arma::vec m2 = adj2.t()*Wtr/(sigma*sigma);
-      //Rcout << m << Phi << endl << Sigma_inv_random;
-      eta = rmvnorm_post(m2, Phi2);
-
-      //Rcout << "updated eta";
-
-      // Update variance parameters
-
-      arma::vec ssqs   = random_var_ix.t()*(gamma % gamma);
-      //Rcout << "A";
-      arma::rowvec counts = sum(random_var_ix, 0);
-      //Rcout << "B";
-      for(size_t ii=0; ii<random_var_ix.n_cols; ++ii) {
-        random_var(ii) = 1.0/gen.gamma(0.5*(random_var_df + counts(ii)), 1.0)*2.0/(random_var_df + ssqs(ii));
-      }
-      //Rcout << "updated vars" << endl;
-      Sigma_inv_random = diagmat(1/(random_var_ix*random_var));
-
-      allfit_random = random_des*diagmat(random_var_ix*eta)*gamma;
-
-      //Rcout << "recom allfit vars" << endl;
-
-      for(size_t k=0; k<n; ++k) {
-        allfit[k] = allfit_con[k] + allfit_mod[k] + allfit_random(k); //+= allfit_random[k];
-      }
-    }
-
-    // ---------------------------------------------------------
-    logger.log("Draw Sigma");
-    // ---------------------------------------------------------
-    double rss = 0.0;
-    double restemp = 0.0;
-    for(size_t k=0;k<n;k++) {
-      restemp = y[k]-allfit[k];
-      rss += w[k]*restemp*restemp;
-    }
-    sigma = sqrt((nu*lambda + rss)/gen.chi_square(nu+n));
-    pi_con.sigma = sigma/fabs(mscale);
-    pi_mod.sigma = sigma; // Is this another copy paste Error?
+    update_sigma(allfit, sigma, nu, lambda, mscale, pi_con, pi_mod, ginfo);
 
     if( ((iIter>=burn) & (iIter % thin==0)) )  {
       if(not treef_con_name.empty()){
@@ -900,46 +421,14 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
         for(size_t j=0;j<ntree_mod;j++) treef_mod << std::setprecision(save_tree_precision) << t_mod[j] << endl; // save trees
       }
       
-      msd_post(save_ctr) = mscale;
-      bsd_post(save_ctr) = bscale1-bscale0;
-      b0_post(save_ctr)  = bscale0;
-      b1_post(save_ctr)  = bscale1;
-
-
-      gamma_post.row(save_ctr) = (diagmat(random_var_ix*eta)*gamma).t();
-      random_var_post.row(save_ctr) = (sqrt( eta % eta % random_var)).t();
-
-      sigma_post(save_ctr) = sigma;
-      for(size_t k=0;k<n;k++) {
-        m_post(save_ctr, k) = allfit_con[k];
-        yhat_post(save_ctr, k) = allfit[k];
-      }
-      for(size_t k=0;k<n;k++) {
-        double bscale = (k<ntrt) ? bscale1 : bscale0;
-        b_post(save_ctr, k) = (bscale1-bscale0)*allfit_mod[k]/bscale;
-      }
-      //}
-      save_ctr += 1;
+      save_values(save_ctr, n, ntrt, msd_post, bsd_post, b0_post, b1_post, sigma_post,
+                  mscale, bscale1, bscale0, sigma, m_post, yhat_post, b_post,
+                  allfit, allfit_con, allfit_mod);
     }
-    logger.log("==============================================");
-    sprintf(logBuff, "MCMC iteration: %d of %d End", iIter + 1, nd*thin+burn);
-    logger.log(logBuff);
-    sprintf(logBuff, "sigma %f, mscale %f, bscale0 %f, bscale1 %f",sigma, mscale, bscale0, bscale1);
-    logger.log(logBuff);
-    logger.log("==============================================");
-    if (verbose_itr){
-      logger.getVectorHead(y, logBuff);
-      Rcout << "           y: " <<  logBuff << "\n";
 
-      logger.getVectorHead(allfit, logBuff);
-      Rcout << "Current Fit : " <<  logBuff << "\n";
-
-      logger.getVectorHead(allfit_con, logBuff);
-      Rcout << "allfit_con  : " <<  logBuff << "\n";
-
-      logger.getVectorHead(allfit_mod, logBuff);
-      Rcout << "allfit_mod  : " <<  logBuff << "\n";
-    }
+    log_iter("End", iIter+1, nd*thin+burn, sigma, mscale, bscale0, bscale1, logger);
+    
+    log_fit(y, allfit, allfit_con, allfit_mod, logger, verbose_itr);
 
   } // end MCMC Loop
 
@@ -962,7 +451,6 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   }
   
   return(List::create(_["yhat_post"] = yhat_post, _["m_post"] = m_post, _["b_post"] = b_post,
-                      _["sigma"] = sigma_post, _["msd"] = msd_post, _["bsd"] = bsd_post, _["b0"] = b0_post, _["b1"] = b1_post, 
-                      _["gamma"] = gamma_post, _["random_var_post"] = random_var_post
+                      _["sigma"] = sigma_post, _["msd"] = msd_post, _["bsd"] = bsd_post, _["b0"] = b0_post, _["b1"] = b1_post
   ));
 }

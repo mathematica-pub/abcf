@@ -2,7 +2,6 @@
 #define GUARD_logging_h
 #include <RcppArmadillo.h>
 
-
 class Logger
 {
     private:
@@ -23,5 +22,9 @@ class Logger
 
 
 };
+
+void log_iter(std::string context, int current, int final, double sigma, double mscale, double bscale0, double bscale1, Logger& logger);
+void log_fit(std::vector<double>& y, double* allfit, double* allfit_con, double* allfit_mod, Logger& logger, bool verbose);
+void log_status(Rcpp::NumericVector& z_, std::vector<double>& y, double* allfit, double* ri, double mscale, double bscale0, double bscale1, Logger& logger);
 
 #endif

@@ -84,6 +84,7 @@ inst/doc
 
 # Other objects
 *txt
+*log
 *pdf
 inst/doc
 .DS_Store
