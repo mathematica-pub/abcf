@@ -232,7 +232,7 @@ void update_bscale(double& bscale0, double& bscale1,
     update_pi(wi, gi.logger, verbose);
 }
 
-void update_sigma(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& ginfo) {
+void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& ginfo) {
   size_t n = ginfo.n;
   std::vector<double>& y = ginfo.y;
   double* w = ginfo.w;
@@ -252,24 +252,79 @@ void update_sigma(double* allfit, double& sigma, double nu, double lambda, doubl
   pi_mod.sigma = sigma;
 }
 
+// placeholder - currently the same as update_sigma_y_conj
+void update_sigma_y(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& ginfo) {
+  size_t n = ginfo.n;
+  std::vector<double>& y = ginfo.y;
+  double* w = ginfo.w;
+  RNG& gen = ginfo.gen;
+  Logger& logger = ginfo.logger;
+
+  logger.log("Draw sigma");
+  double rss = 0.0;
+  double restemp = 0.0;
+  for(size_t k=0;k<n;k++) {
+    restemp = y[k]-allfit[k];
+    rss += w[k]*restemp*restemp;
+  }
+
+  sigma = sqrt((nu*lambda + rss)/gen.chi_square(nu+n));
+  pi_con.sigma = sigma/fabs(mscale);
+  pi_mod.sigma = sigma;
+}
+
+void update_sigma_u() {
+  // empty
+}
+
+void update_sigma_v() {
+  // empty
+}
+
+void update_rho() {
+  // empty
+}
+
+void update_sigma(ginfo& gi) {
+  for (size_t i=0;i<gi.n;i++) {
+    gi.sigma_i[i] = sqrt(gi.sigma_y*gi.sigma_y/gi.w[i] + gi.sigma_u*gi.sigma_u + gi.sigma_v*gi.sigma_v*gi.z_[i] + 2*gi.rho*gi.sigma_u*gi.sigma_v*gi.z_[i]);
+  }
+}
+
+void draw_uv(double* u, double* v, ginfo& gi){
+  for(size_t i=0;i<gi.n;i++) {
+    u[i] = 0;
+    v[i] = 0;
+  }
+};
+
 void save_values(size_t& save_ctr, int n, int ntrt,
                 Rcpp::NumericVector& msd_post, Rcpp::NumericVector& bsd_post, 
-                Rcpp::NumericVector& b0_post, Rcpp::NumericVector& b1_post, Rcpp::NumericVector& sigma_post,
-                double mscale, double bscale1, double bscale0, double sigma,
+                Rcpp::NumericVector& b0_post, Rcpp::NumericVector& b1_post, Rcpp::NumericVector& sigma_y_post,
+                Rcpp::NumericVector& sigma_u_post, Rcpp::NumericVector& sigma_v_post, 
+                Rcpp::NumericVector& rho_post, Rcpp::NumericMatrix& sigma_i_post,
+                double mscale, double bscale1, double bscale0, ginfo& gi,
                 Rcpp::NumericMatrix& m_post, Rcpp::NumericMatrix& yhat_post, Rcpp::NumericMatrix& b_post,
+                Rcpp::NumericMatrix& u_post, Rcpp::NumericMatrix& v_post,
                 double* allfit, double* allfit_con, double* allfit_mod) {
 
   msd_post(save_ctr) = mscale;
   bsd_post(save_ctr) = bscale1-bscale0;
   b0_post(save_ctr)  = bscale0;
   b1_post(save_ctr)  = bscale1;
-  sigma_post(save_ctr) = sigma;
+  sigma_y_post(save_ctr) = gi.sigma_y;
+  sigma_u_post(save_ctr) = gi.sigma_u;
+  sigma_v_post(save_ctr) = gi.sigma_v;
+  rho_post(save_ctr) = gi.rho;
 
   for(size_t k=0;k<n;k++) {
     m_post(save_ctr, k) = allfit_con[k];
     yhat_post(save_ctr, k) = allfit[k];
     double bscale = (k<ntrt) ? bscale1 : bscale0;
     b_post(save_ctr, k) = (bscale1-bscale0)*allfit_mod[k]/bscale;
+    u_post(save_ctr, k) = gi.u[k];
+    v_post(save_ctr, k) = gi.v[k];
+    sigma_i_post(save_ctr,k) = gi.sigma_i[k];
   }
 
   save_ctr += 1;

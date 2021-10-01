@@ -39,7 +39,8 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   double mod_alpha, double mod_beta,
                   CharacterVector treef_con_name_, CharacterVector treef_mod_name_,
                   int status_interval=100,
-                  bool RJ= false, bool use_mscale=true, bool use_bscale=true, bool b_half_normal=true,
+                  bool RJ= false, bool use_mscale=true, bool use_bscale=true, 
+                  bool b_half_normal=true, bool randeff=false,
                   double trt_init = 1.0, int verbose=1)
 {
 
@@ -222,9 +223,12 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
   pi_con.sigma = shat/fabs(mscale); //resid variance in backfitting is \sigma^2_y/mscale^2
 
-  double sigma = shat;
-
-  // @Peter This is where dinfo is initialized
+  double sigma_y = shat;
+  double sigma_u = 0;
+  double sigma_v = 0;
+  double rho = 0;
+  // Initialize but don't yet fill out sigma_i
+  double* sigma_i = new double[n];
 
   //--------------------------------------------------
   //dinfo for control function m(x)
@@ -259,7 +263,19 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   }
   double* ftemp  = new double[n]; //fit of current tree
 
-  NumericVector sigma_post(nd);
+  // Storage for the individual-level random effects
+  double* u = new double[n];
+  double* v = new double[n];
+  for(size_t i=0;i<n;i++) {
+    u[i] = 0;
+    v[i] = 0;
+  }
+
+  NumericVector sigma_y_post(nd);
+  NumericVector sigma_u_post(nd);
+  NumericVector sigma_v_post(nd);
+  NumericMatrix sigma_i_post(nd,n);
+  NumericVector rho_post(nd);
   NumericVector msd_post(nd);
   NumericVector bsd_post(nd);
   NumericVector b0_post(nd);
@@ -267,6 +283,8 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   NumericMatrix m_post(nd,n);
   NumericMatrix yhat_post(nd,n);
   NumericMatrix b_post(nd,n);
+  NumericMatrix u_post(nd,n);
+  NumericMatrix v_post(nd,n);
 
   //  NumericMatrix spred2(nd,dip.n);
 
@@ -321,8 +339,18 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                  .z_      = z_,
                  .y       = y,
                  .w       = w,
+                 .u       = u,
+                 .v       = v,
+                 .sigma_i = sigma_i,
+                 .sigma_y = sigma_y,
+                 .sigma_u = sigma_u,
+                 .sigma_v = sigma_v,
+                 .rho = rho,
                  .gen     = gen,
                  .logger  = logger};
+
+  // Now that we have ginfo, fill out sigma_i
+  update_sigma(ginfo);
 
   winfo wi_con = {.ntree      = ntree_con,
                   .t          = t_con,
@@ -354,25 +382,25 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
     if(verbose > 0){
         if(iIter%status_interval==0) {
-            Rcout << "iteration: " << iIter << " sigma/SD(y): "<< sigma << endl;
+            Rcout << "iteration: " << iIter << " sigma/SD(y): "<< sigma_y << endl;
         }
     }
 
     logger.setLevel(verbose_itr);
 
-    log_iter("Start", iIter+1, nd*thin+burn, sigma, mscale, bscale0, bscale1, logger);
+    log_iter("Start", iIter+1, nd*thin+burn, sigma_y, mscale, bscale0, bscale1, logger);
     
     log_fit(y, allfit, allfit_con, allfit_mod, logger, verbose_itr);
 
     for (int k=0; k<n; ++k){
-      weight[k] = w[k]*mscale*mscale/(sigma * sigma); // for non-het case, weights need to be divided by sigma square to make it similar to phi
+      weight[k] = mscale*mscale/(sigma_i[k] * sigma_i[k]); // for non-het case, weights need to be divided by sigma square to make it similar to phi
     }
 
     for(size_t k=0; k<ntrt; ++k) {
-      weight_het[k] = w[k]*bscale1*bscale1/(sigma*sigma);
+      weight_het[k] = bscale1*bscale1/(sigma_i[k] * sigma_i[k]);
     }
     for(size_t k=ntrt; k<n; ++k) {
-      weight_het[k] = w[k]*bscale0*bscale0/(sigma*sigma);
+      weight_het[k] = bscale0*bscale0/(sigma_i[k] * sigma_i[k]);
     }
 
     logger.log("=====================================");
@@ -395,13 +423,13 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
     if(use_bscale) {
       update_bscale(bscale0, bscale1, 
-                    b_half_normal, sigma,
+                    b_half_normal, sigma_y,
                     allfit_con, allfit_mod,
                     ginfo, wi_mod, verbose_itr);
     }
 
     if(use_mscale) {
-     update_mscale(mscale, sigma, 
+     update_mscale(mscale, sigma_y, 
                     allfit_con, allfit_mod,
                     ginfo, wi_con, verbose_itr);
     }
@@ -413,7 +441,20 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       }
     }
 
-    update_sigma(allfit, sigma, nu, lambda, mscale, pi_con, pi_mod, ginfo);
+    if (randeff) {
+      update_sigma_y(allfit, sigma_y, nu, lambda, mscale, pi_con, pi_mod, ginfo);
+      update_sigma_u();
+      update_sigma_v();
+      update_rho();
+
+      update_sigma(ginfo);
+
+      draw_uv(u, v, ginfo);
+      // also include u/v in the fit?
+    } else {
+      update_sigma_y_conj(allfit, sigma_y, nu, lambda, mscale, pi_con, pi_mod, ginfo);
+      update_sigma(ginfo);
+    }
 
     if( ((iIter>=burn) & (iIter % thin==0)) )  {
       if(not treef_con_name.empty()){
@@ -421,12 +462,13 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
         for(size_t j=0;j<ntree_mod;j++) treef_mod << std::setprecision(save_tree_precision) << t_mod[j] << endl; // save trees
       }
       
-      save_values(save_ctr, n, ntrt, msd_post, bsd_post, b0_post, b1_post, sigma_post,
-                  mscale, bscale1, bscale0, sigma, m_post, yhat_post, b_post,
-                  allfit, allfit_con, allfit_mod);
+      save_values(save_ctr, n, ntrt, msd_post, bsd_post, b0_post, b1_post, 
+                  sigma_y_post, sigma_u_post, sigma_v_post, rho_post, sigma_i_post,
+                  mscale, bscale1, bscale0, ginfo, m_post, yhat_post, b_post,
+                  u_post, v_post, allfit, allfit_con, allfit_mod);
     }
 
-    log_iter("End", iIter+1, nd*thin+burn, sigma, mscale, bscale0, bscale1, logger);
+    log_iter("End", iIter+1, nd*thin+burn, sigma_y, mscale, bscale0, bscale1, logger);
     
     log_fit(y, allfit, allfit_con, allfit_mod, logger, verbose_itr);
 
@@ -451,6 +493,8 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   }
   
   return(List::create(_["yhat_post"] = yhat_post, _["m_post"] = m_post, _["b_post"] = b_post,
-                      _["sigma"] = sigma_post, _["msd"] = msd_post, _["bsd"] = bsd_post, _["b0"] = b0_post, _["b1"] = b1_post
+                      _["sigma_y"] = sigma_y_post, _["sigma_u"] = sigma_u_post, _["sigma_v"] = sigma_v_post,
+                      _["rho"] = rho_post, _["sigma_i"] = sigma_i_post, _["u"] = u_post, _["v"] = v_post,
+                      _["msd"] = msd_post, _["bsd"] = bsd_post, _["b0"] = b0_post, _["b1"] = b1_post
   ));
 }

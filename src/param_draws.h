@@ -16,6 +16,13 @@ struct ginfo {
    Rcpp::NumericVector& z_;
    std::vector<double>& y;
    double* w;
+   double* u;
+   double* v;
+   double* sigma_i;
+   double& sigma_y;
+   double& sigma_u;
+   double& sigma_v;
+   double& rho;
    // Helper bits
    RNG& gen;
    Logger& logger;
@@ -60,13 +67,28 @@ void update_bscale(double& bscale0, double& bscale1,
                     double* allfit_con, double* allfit_mod,
                     ginfo& gi, winfo& wi, bool verbose);
 
-void update_sigma(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& ginfo);
+void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& ginfo);
+
+void update_sigma_y(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& ginfo);
+
+void update_sigma_u();
+
+void update_sigma_v();
+
+void update_rho();
+
+void update_sigma(ginfo& gi);
+
+void draw_uv(double* u, double* v, ginfo& gi);
 
 void save_values(size_t& save_ctr, int n, int ntrt,
                 Rcpp::NumericVector& msd_post, Rcpp::NumericVector& bsd_post, 
-                Rcpp::NumericVector& b0_post, Rcpp::NumericVector& b1_post, Rcpp::NumericVector& sigma_post,
-                double mscale, double bscale1, double bscale0, double sigma,
+                Rcpp::NumericVector& b0_post, Rcpp::NumericVector& b1_post, Rcpp::NumericVector& sigma_y_post,
+                Rcpp::NumericVector& sigma_u_post, Rcpp::NumericVector& sigma_v_post, 
+                Rcpp::NumericVector& rho_post, Rcpp::NumericMatrix& sigma_i_post,
+                double mscale, double bscale1, double bscale0, ginfo& gi,
                 Rcpp::NumericMatrix& m_post, Rcpp::NumericMatrix& yhat_post, Rcpp::NumericMatrix& b_post,
+                Rcpp::NumericMatrix& u_post, Rcpp::NumericMatrix& v_post,
                 double* allfit, double* allfit_con, double* allfit_mod);
 
 #endif

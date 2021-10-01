@@ -12,11 +12,7 @@ are all equal), tau_bar (the estimated sample average treatment effect), mu_bar
 yhat_bat (the average outcome under the realized treatment assignment across all
 observations in the sample).}
 \usage{
-\method{summary}{bcf}(
-  object,
-  ...,
-  params_2_summarise = c("sigma", "tau_bar", "mu_bar", "yhat_bar")
-)
+\method{summary}{bcf}(object, ..., params_2_summarise = NULL)
 }
 \arguments{
 \item{object}{output from a BCF predict run.}

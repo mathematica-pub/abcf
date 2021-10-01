@@ -130,8 +130,9 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
 #' or "both" are HIGHLY recommended with observational data.
 #' @param use_muscale Use a half-Cauchy hyperprior on the scale of mu.
 #' @param use_tauscale Use a half-Normal prior on the scale of tau.
-#' @param verbose Integer, whether to print log of MCMC iterations, defaults to 1 - basic logging of iteration progress. 
-#' Setting to 0 disables logging, while setting to 2 enables logging of detailed statistics each iteration, 
+#' @param include_random_effects Use individual-level random effects u and v.
+#' @param verbose Integer, whether to print log of MCMC iterations, defaults to 1 - basic logging of iteration progress.
+#' Setting to 0 disables logging, while setting to 2 enables logging of detailed statistics each iteration,
 #' and setting to 3 enables logging of individual trees.
 #' @return A fitted bcf object that is a list with elements
 #' \item{tau}{\code{nsim} by \code{n} matrix of posterior samples of individual-level treatment effect estimates}
@@ -238,7 +239,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 save_tree_directory = '.',
                 log_file=file.path('.',sprintf('bcf_log_%s.txt',format(Sys.time(), "%Y%m%d_%H%M%S"))),
                 nu = 3, lambda = NULL, sigq = .9, sighat = NULL,
-                include_pi = "control", use_muscale=TRUE, use_tauscale=TRUE, verbose=1
+                include_pi = "control", use_muscale=TRUE, use_tauscale=TRUE,
+                include_random_effects=FALSE, verbose=1
 ) {
 
 
@@ -277,6 +279,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   if(any(!is.finite(x_moderate))) stop("Non-numeric values in x_moderate")
   if(any(!is.finite(pihat))) stop("Non-numeric values in pihat")
   if(!all(sort(unique(z)) == c(0,1))) stop("z must be a vector of 0's and 1's, with at least one of each")
+  if(!(include_random_effects %in% c(TRUE,FALSE))) stop("include_random_effects must be TRUE or FALSE")
   if(!(verbose %in% 0:4)) stop("verbose must be an integer from 0 to 4")
 
   if(length(unique(y))<5) warning("y appears to be discrete")
@@ -355,7 +358,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                                  treef_mod_name_ = tree_files$mod_trees,
                                  status_interval = update_interval,
                                  use_mscale = use_muscale, use_bscale = use_tauscale,
-                                 b_half_normal = TRUE, verbose=verbose)
+                                 b_half_normal = TRUE, randeff = include_random_effects,
+                                 verbose=verbose)
 
     cat("bcfoverparRcppClean returned to R\n")
 
@@ -369,36 +373,54 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
 
     mu_post  = muy + sdy*(Tc*fitbcf$msd + Tm*fitbcf$b0)
 
-    list(sigma = sdy*fitbcf$sigma,
-         yhat = muy + sdy*fitbcf$yhat_post[,order(perm)],
-         sdy = sdy,
-         con_sd = con_sd,
-         mod_sd = mod_sd,
-         muy = muy,
-         mu  = mu_post,
-         tau = tau_post,
-         mu_scale = fitbcf$msd,
-         tau_scale = fitbcf$bsd,
-         b0 = fitbcf$b0,
-         b1 = fitbcf$b1,
-         perm = perm,
+    u_post = sdy*fitbcf$u[,order(perm)]
+
+    v_post = sdy*fitbcf$u[,order(perm)]
+
+    yhat_post = muy + sdy*fitbcf$yhat_post[,order(perm)]
+
+    list(sigma_y    = sdy*fitbcf$sigma_y,
+         sigma_u    = sdy*fitbcf$sigma_u,
+         sigma_v    = sdy*fitbcf$sigma_v,
+         rho        = sdy*fitbcf$rho,
+         sigma_i    = sdy*fitbcf$sigma_i,
+         yhat       = yhat_post,
+         sdy        = sdy,
+         con_sd     = con_sd,
+         mod_sd     = mod_sd,
+         muy        = muy,
+         mu         = mu_post,
+         tau        = tau_post,
+         u          = u_post,
+         v          = v_post,
+         mu_scale   = fitbcf$msd,
+         tau_scale  = fitbcf$bsd,
+         b0         = fitbcf$b0,
+         b1         = fitbcf$b1,
+         perm       = perm,
          include_pi = include_pi,
+         include_random_effects = include_random_effects,
          random_seed=this_seed
     )
 
   }
 
-
-  all_sigma = c()
-  all_mu_scale = c()
+  all_sigma_y   = c()
+  all_sigma_u   = c()
+  all_sigma_v   = c()
+  all_rho       = c()
+  all_sigma_i   = c()
+  all_mu_scale  = c()
   all_tau_scale = c()
 
-  all_b0 = c()
-  all_b1 = c()
+  all_b0        = c()
+  all_b1        = c()
 
-  all_yhat = c()
-  all_mu   = c()
-  all_tau  = c()
+  all_yhat      = c()
+  all_mu        = c()
+  all_tau       = c()
+  all_u         = c()
+  all_v         = c()
 
   chain_list=list()
 
@@ -406,42 +428,57 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
 
 
   for (iChain in 1:n_chains){
-    sigma        <- chain_out[[iChain]]$sigma
+    sigma_y      <- chain_out[[iChain]]$sigma_y
+    sigma_u      <- chain_out[[iChain]]$sigma_u
+    sigma_v      <- chain_out[[iChain]]$sigma_v
+    rho          <- chain_out[[iChain]]$rho
+    sigma_i      <- chain_out[[iChain]]$sigma_i
     mu_scale     <- chain_out[[iChain]]$mu_scale
     tau_scale    <- chain_out[[iChain]]$tau_scale
 
-    b0          <- chain_out[[iChain]]$b0
-    b1          <- chain_out[[iChain]]$b1
+    b0           <- chain_out[[iChain]]$b0
+    b1           <- chain_out[[iChain]]$b1
 
     yhat         <- chain_out[[iChain]]$yhat
     tau          <- chain_out[[iChain]]$tau
     mu           <- chain_out[[iChain]]$mu
+    u            <- chain_out[[iChain]]$u
+    v            <- chain_out[[iChain]]$v
 
     # -----------------------------
     # Support Old Output
     # -----------------------------
-    all_sigma       = c(all_sigma,     sigma)
-    all_mu_scale    = c(all_mu_scale,  mu_scale)
-    all_tau_scale   = c(all_tau_scale, tau_scale)
-    all_b0 = c(all_b0, b0)
-    all_b1 = c(all_b1, b1)
+    all_sigma_y     = c(all_sigma_y,       sigma_y)
+    all_sigma_u     = c(all_sigma_u,       sigma_u)
+    all_sigma_v     = c(all_sigma_v,       sigma_v)
+    all_rho         = c(all_rho,           rho)
+    all_sigma_i     = rbind(all_sigma_i,   sigma_i)
+    all_mu_scale    = c(all_mu_scale,      mu_scale)
+    all_tau_scale   = c(all_tau_scale,     tau_scale)
+    all_b0          = c(all_b0,            b0)
+    all_b1          = c(all_b1,            b1)
 
-    all_yhat = rbind(all_yhat, yhat)
-    all_mu   = rbind(all_mu,   mu)
-    all_tau  = rbind(all_tau,  tau)
+    all_yhat        = rbind(all_yhat,      yhat)
+    all_mu          = rbind(all_mu,        mu)
+    all_tau         = rbind(all_tau,       tau)
+    all_u           = rbind(all_u,         u)
+    all_v           = rbind(all_v,         v)
 
     # -----------------------------
     # Make the MCMC Object
     # -----------------------------
 
-    scalar_df <- data.frame("sigma"     = sigma,
+    scalar_df <- data.frame("sigma_y"   = sigma_y,
+                            "sigma_u"   = sigma_u,
+                            "sigma_v"   = sigma_v,
+                            "rho"       = rho,
                             "tau_bar"   = matrixStats::rowWeightedMeans(tau, w),
                             "mu_bar"    = matrixStats::rowWeightedMeans(mu, w),
                             "yhat_bar"  = matrixStats::rowWeightedMeans(yhat, w),
                             "mu_scale"  = mu_scale,
                             # "tau_scale" = tau_scale,
-                            "b0"  = b0,
-                            "b1"  = b1)
+                            "b0"        = b0,
+                            "b1"        = b1)
 
     # y_df <- as.data.frame(chain$yhat)
     # colnames(y_df) <- paste0('y',1:ncol(y_df))
@@ -461,24 +498,49 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
     if(chain_out[[iChain]]$mod_sd     != chain_out[[1]]$mod_sd)     stop("mod_sd not consistent between chains for no reason")
     if(chain_out[[iChain]]$muy        != chain_out[[1]]$muy)        stop("muy not consistent between chains for no reason")
     if(chain_out[[iChain]]$include_pi != chain_out[[1]]$include_pi) stop("include_pi not consistent between chains for no reason")
+    if(chain_out[[iChain]]$include_random_effects != chain_out[[1]]$include_random_effects) stop("include_random_effects not consistent between chains for no reason")
     if(any(chain_out[[iChain]]$perm   != chain_out[[1]]$perm))      stop("perm not consistent between chains for no reason")
   }
 
-  fitObj <- list(sigma = all_sigma,
-                 yhat = all_yhat,
-                 sdy = chain_out[[1]]$sdy,
-                 muy = chain_out[[1]]$muy,
-                 mu  = all_mu,
-                 tau = all_tau,
-                 mu_scale = all_mu_scale,
-                 tau_scale = all_tau_scale,
-                 b0 = all_b0,
-                 b1 = all_b1,
-                 perm = perm,
+  fitObj <- list(sigma_y    = all_sigma_y,
+                 sigma_u    = all_sigma_u,
+                 sigma_v    = all_sigma_v,
+                 rho        = all_rho,
+                 sigma_i    = all_sigma_i,
+                 yhat       = all_yhat,
+                 sdy        = chain_out[[1]]$sdy,
+                 muy        = chain_out[[1]]$muy,
+                 mu         = all_mu,
+                 tau        = all_tau,
+                 u          = all_u,
+                 v          = all_v,
+                 mu_scale   = all_mu_scale,
+                 tau_scale  = all_tau_scale,
+                 b0         = all_b0,
+                 b1         = all_b1,
+                 perm       = perm,
                  include_pi = chain_out[[1]]$include_pi,
+                 include_random_effects = chain_out[[1]]$include_random_effects,
                  random_seed = chain_out[[1]]$random_seed,
                  coda_chains = coda::as.mcmc.list(chain_list),
                  raw_chains = chain_out)
+
+  #Remove random effect return stuff if no REs
+  if (!fitObj$include_random_effects) {
+    fitObj$sigma_u <- fitObj$sigma_v <- fitObj$rho <- fitObj$sigma_i <- fitObj$u <- fitObj$v <- NULL
+    names(fitObj)[names(fitObj)=='sigma_y'] <- 'sigma'
+    fitObj$raw_chains <- lapply(fitObj$raw_chains, function(x) {
+      x$sigma_u <- x$sigma_v <- x$rho <- x$sigma_i <- x$u <- x$v <- NULL
+      names(x)[names(x)=='sigma_y'] <- 'sigma'
+      return(x)
+    })
+
+    for (iChain in 1:n_chains) {
+      keep <- !(colnames(fitObj$coda_chains[[iChain]]) %in% c('sigma_u','sigma_v','rho'))
+      fitObj$coda_chains[[iChain]] <- fitObj$coda_chains[[iChain]][,keep]
+      colnames(fitObj$coda_chains[[iChain]])[colnames(fitObj$coda_chains[[iChain]])=='sigma_y'] <- 'sigma'
+    }
+  }
 
   attr(fitObj, "class") <- "bcf"
 
@@ -546,7 +608,17 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
 #' @export
 summary.bcf <- function(object,
                         ...,
-                        params_2_summarise = c('sigma','tau_bar','mu_bar','yhat_bar')){
+                        params_2_summarise = NULL){
+
+  if (!is.null(params_2_summarise)) {
+
+  } else if (is.null(params_2_summarise) & is.null(object$include_random_effects)) {
+    params_2_summarise <- c('sigma','tau_bar','mu_bar','yhat_bar')
+  } else if (is.null(params_2_summarise) & !object$include_random_effects) {
+    params_2_summarise <- c('sigma','tau_bar','mu_bar','yhat_bar')
+  } else if (is.null(params_2_summarise) & object$include_random_effects) {
+    params_2_summarise <- c('sigma_y','sigma_u','sigma_v','rho','tau_bar','mu_bar','yhat_bar')
+  }
 
   chains_2_summarise <- object$coda_chains[,params_2_summarise]
 

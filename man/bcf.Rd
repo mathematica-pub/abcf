@@ -37,6 +37,7 @@ bcf(
   include_pi = "control",
   use_muscale = TRUE,
   use_tauscale = TRUE,
+  include_random_effects = FALSE,
   verbose = 1
 )
 }
@@ -105,8 +106,10 @@ or "both" are HIGHLY recommended with observational data.}
 
 \item{use_tauscale}{Use a half-Normal prior on the scale of tau.}
 
-\item{verbose}{Integer, whether to print log of MCMC iterations, defaults to 1 - basic logging of iteration progress. 
-Setting to 0 disables logging, while setting to 2 enables logging of detailed statistics each iteration, 
+\item{include_random_effects}{Use individual-level random effects u and v.}
+
+\item{verbose}{Integer, whether to print log of MCMC iterations, defaults to 1 - basic logging of iteration progress.
+Setting to 0 disables logging, while setting to 2 enables logging of detailed statistics each iteration,
 and setting to 3 enables logging of individual trees.}
 }
 \value{
