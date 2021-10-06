@@ -31,7 +31,7 @@ void Logger::getVectorHead(double* x, char s[100]){
 }
 
 void log_iter(std::string context, int current, int final, double sigma_y, double sigma_u, double sigma_v, double rho, double mscale, double bscale0, double bscale1, Logger& logger) {
-    char logBuff[100];
+    char logBuff[250];
     logger.log("==============================================");
     sprintf(logBuff, "MCMC iteration: %d of %d ", current, final);
     logger.log(logBuff + context);
@@ -41,7 +41,7 @@ void log_iter(std::string context, int current, int final, double sigma_y, doubl
 }
 
 void log_fit(std::vector<double>& y, double* allfit, double* allfit_con, double* allfit_mod, double* sigma_i, Logger& logger, bool verbose) {
-    char logBuff[100];
+    char logBuff[250];
     if (verbose) {
         logger.getVectorHead(y, logBuff);
         Rcout << "           y: " <<  logBuff << "\n";
@@ -61,7 +61,7 @@ void log_fit(std::vector<double>& y, double* allfit, double* allfit_con, double*
 }
 
 void log_status(NumericVector& z_, std::vector<double>& y, double* allfit, double* ri, double mscale, double bscale0, double bscale1, Logger& logger) {
-    char logBuff[100];
+    char logBuff[250];
 
     logger.log("Printing current status of fit");
 
