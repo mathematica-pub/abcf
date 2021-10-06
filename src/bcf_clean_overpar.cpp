@@ -223,10 +223,16 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
   pi_con.sigma = shat/fabs(mscale); //resid variance in backfitting is \sigma^2_y/mscale^2
 
+  // Always start sigma_y at sample SD
   double sigma_y = shat;
   double sigma_u = 0;
   double sigma_v = 0;
   double rho = 0;
+  // For others draw from prior if we're doing random effects
+  if (randeff) {
+    //initialize_sigmas(sigma_y, sigma_u, sigma_v, rho, gen);
+  }
+  
   // Initialize but don't yet fill out sigma_i
   double* sigma_i = new double[n];
 
@@ -333,24 +339,34 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     bscale_idx.push_back(i<ntrt ? bscale1 : bscale0);
   }
 
+  // Initialize the log-sigma parameters for adaptive MH
+  double ls_sigma_y = 0;
+  double ls_sigma_u = 0;
+  double ls_sigma_v = 0;
+  double ls_rho     = 0;
+
   // General info - shortcut for passing to functions
-  ginfo ginfo = {.n       = n,
-                 .ntrt    = ntrt,
-                 .z_      = z_,
-                 .y       = y,
-                 .w       = w,
-                 .u       = u,
-                 .v       = v,
-                 .sigma_i = sigma_i,
-                 .sigma_y = sigma_y,
-                 .sigma_u = sigma_u,
-                 .sigma_v = sigma_v,
-                 .rho = rho,
-                 .gen     = gen,
-                 .logger  = logger};
+  ginfo ginfo = {.n          = n,
+                 .ntrt       = ntrt,
+                 .z_         = z_,
+                 .y          = y,
+                 .w          = w,
+                 .u          = u,
+                 .v          = v,
+                 .sigma_i    = sigma_i,
+                 .sigma_y    = sigma_y,
+                 .sigma_u    = sigma_u,
+                 .sigma_v    = sigma_v,
+                 .rho        = rho,
+                 .ls_sigma_y = ls_sigma_y,
+                 .ls_sigma_u = ls_sigma_u,
+                 .ls_sigma_v = ls_sigma_v,
+                 .ls_rho     = ls_rho,
+                 .gen        = gen,
+                 .logger     = logger};
 
   // Now that we have ginfo, fill out sigma_i
-  update_sigma(ginfo);
+  sigma_i = calculate_sigma_i(ginfo, sigma_y, sigma_u, sigma_v, rho);
 
   winfo wi_con = {.ntree      = ntree_con,
                   .t          = t_con,
@@ -388,9 +404,9 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
     logger.setLevel(verbose_itr);
 
-    log_iter("Start", iIter+1, nd*thin+burn, sigma_y, mscale, bscale0, bscale1, logger);
+    log_iter("Start", iIter+1, nd*thin+burn, sigma_y, sigma_u, sigma_v, rho, mscale, bscale0, bscale1, logger);
     
-    log_fit(y, allfit, allfit_con, allfit_mod, logger, verbose_itr);
+    log_fit(y, allfit, allfit_con, allfit_mod, sigma_i, logger, verbose_itr);
 
     for (int k=0; k<n; ++k){
       weight[k] = mscale*mscale/(sigma_i[k] * sigma_i[k]); // for non-het case, weights need to be divided by sigma square to make it similar to phi
@@ -442,18 +458,17 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     }
 
     if (randeff) {
-      update_sigma_y(allfit, sigma_y, nu, lambda, mscale, pi_con, pi_mod, ginfo);
-      update_sigma_u();
-      update_sigma_v();
-      update_rho();
-
-      update_sigma(ginfo);
+      // each of these updates will also update sigma_i when they run
+      update_sigma_y(ginfo, allfit, nu, lambda);
+      update_sigma_u(ginfo, allfit);
+      update_sigma_v(ginfo, allfit);
+      update_rho(ginfo, allfit);
 
       draw_uv(u, v, ginfo);
       // also include u/v in the fit?
     } else {
       update_sigma_y_conj(allfit, sigma_y, nu, lambda, mscale, pi_con, pi_mod, ginfo);
-      update_sigma(ginfo);
+      sigma_i = calculate_sigma_i(ginfo, sigma_y, sigma_u, sigma_v, rho);
     }
 
     if( ((iIter>=burn) & (iIter % thin==0)) )  {
@@ -468,9 +483,9 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   u_post, v_post, allfit, allfit_con, allfit_mod);
     }
 
-    log_iter("End", iIter+1, nd*thin+burn, sigma_y, mscale, bscale0, bscale1, logger);
+    log_iter("End", iIter+1, nd*thin+burn, sigma_y, sigma_u, sigma_v, rho, mscale, bscale0, bscale1, logger);
     
-    log_fit(y, allfit, allfit_con, allfit_mod, logger, verbose_itr);
+    log_fit(y, allfit, allfit_con, allfit_mod, sigma_i, logger, verbose_itr);
 
   } // end MCMC Loop
 

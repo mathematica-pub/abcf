@@ -1,6 +1,6 @@
 #ifndef GUARD_param_draws_H
 #define GUARD_funs_h
-
+ 
 #include "tree.h"
 #include "info.h"
 #include "rng.h"
@@ -23,6 +23,10 @@ struct ginfo {
    double& sigma_u;
    double& sigma_v;
    double& rho;
+   double& ls_sigma_y;
+   double& ls_sigma_u;
+   double& ls_sigma_v;
+   double& ls_rho;
    // Helper bits
    RNG& gen;
    Logger& logger;
@@ -67,17 +71,25 @@ void update_bscale(double& bscale0, double& bscale1,
                     double* allfit_con, double* allfit_mod,
                     ginfo& gi, winfo& wi, bool verbose);
 
+void initialize_sigmas(double& sigma_y, double& sigma_u, double& sigma_v, double& rho, RNG& gen);
+
+double propose_sigma(double sigma_current, double ls_proposal, RNG& gen);
+
+double propose_rho(double rho_current, double ls_proposal, RNG& gen);
+
 void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& ginfo);
 
-void update_sigma_y(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& ginfo);
+void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda);
 
-void update_sigma_u();
+void update_sigma_u(ginfo& gi, double* allfit);
 
-void update_sigma_v();
+void update_sigma_v(ginfo& gi, double* allfit);
 
-void update_rho();
+void update_rho(ginfo& gi, double* allfit);
 
-void update_sigma(ginfo& gi);
+double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed, double* sigma_i_current, double* sigma_i_proposed);
+
+double* calculate_sigma_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_v, double rho);
 
 void draw_uv(double* u, double* v, ginfo& gi);
 

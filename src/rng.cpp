@@ -46,3 +46,28 @@ arma::vec rmvnorm_post(arma::vec &m, arma::mat &Phi) {
   arma::vec res = mu + arma::solve(arma::trimatu(arma::chol(Phi)), z);
   return(res);
 }
+
+// Raised cosine cdf and approx inverse cdf - to use with RNG to get raised cosine random numbers
+double rc_cdf(double x, double mu, double s) {
+  return((1 + (x - mu) / s + sin(M_PI * (x - mu) / s) / M_PI) / 2);
+}
+
+double rc_invcdf(double p, double mu, double s) {
+  double low = mu-s;
+  double high = mu+s;
+  double epsilon = 1e-10;
+  while (high - low > epsilon)
+  {
+      double mid = (low + high) / 2;
+      if (rc_cdf(mid, mu, s) == p) {
+        return(mid);
+      }
+      if (rc_cdf(mid, mu, s) < p) {
+        low = mid; 
+      } else {
+        high = mid;
+      }
+  }
+  return((low + high) / 2);
+}
+

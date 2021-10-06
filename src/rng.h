@@ -105,6 +105,9 @@ double rtnormlo(double mean, double sd, double lo);
 //sample from N(Phi^(-1)m, Phi^(-1))
 arma::vec rmvnorm_post(arma::vec &m, arma::mat &Phi);
 
+double rc_cdf(double x, double mu, double s);
+
+double rc_invcdf(double p, double mu, double s);
 
 #endif // RNG_H
 

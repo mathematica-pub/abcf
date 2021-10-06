@@ -2,7 +2,6 @@
 #include "funs.h"
 #include "bd.h"
 #include "logging.h"
-#include <cmath>
 #include <iostream>
 #include <RcppArmadillo.h>
 #include "param_draws.h"
@@ -232,6 +231,27 @@ void update_bscale(double& bscale0, double& bscale1,
     update_pi(wi, gi.logger, verbose);
 }
 
+void initialize_sigmas(double& sigma_y, double& sigma_u, double& sigma_v, double& rho, RNG& gen) {
+  // sigma_y is not changed
+  sigma_u = abs(gen.normal(0., 1.));
+  sigma_v = abs(gen.normal(0., 1.));
+  rho = rc_invcdf(gen.uniform(), 0., 1.);
+}
+
+double propose_sigma(double sigma_current, double ls_proposal, RNG& gen) {
+  double delta = sqrt(exp(2*ls_proposal));
+  double log_proposal = log(sigma_current) + gen.normal(0., 1.) * delta;
+  double proposal = exp(log_proposal);
+  return(proposal);
+}
+
+double propose_rho(double rho_current, double ls_proposal, RNG& gen) {
+  double delta = sqrt(exp(2*ls_proposal));
+  double xformed_proposal = log((rho_current + 1) / (1 - rho_current)) + gen.normal(0., 1.) * delta;
+  double proposal = (exp(xformed_proposal) - 1) / (exp(xformed_proposal) + 1);
+  return(proposal);
+}
+
 void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& ginfo) {
   size_t n = ginfo.n;
   std::vector<double>& y = ginfo.y;
@@ -252,43 +272,113 @@ void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda
   pi_mod.sigma = sigma;
 }
 
-// placeholder - currently the same as update_sigma_y_conj
-void update_sigma_y(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& ginfo) {
-  size_t n = ginfo.n;
-  std::vector<double>& y = ginfo.y;
-  double* w = ginfo.w;
-  RNG& gen = ginfo.gen;
-  Logger& logger = ginfo.logger;
+void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda) {
+  double proposal = propose_sigma(gi.sigma_y, gi.ls_sigma_y, gi.gen);
+  double* sigma_i_proposed = calculate_sigma_i(gi, proposal, gi.sigma_u, gi.sigma_v, gi.rho);
 
-  logger.log("Draw sigma");
-  double rss = 0.0;
-  double restemp = 0.0;
-  for(size_t k=0;k<n;k++) {
-    restemp = y[k]-allfit[k];
-    rss += w[k]*restemp*restemp;
+  double log_prior_current  = - (nu/2 + 1) * log(gi.sigma_y*gi.sigma_y) - nu*lambda / (2*gi.sigma_y*gi.sigma_y);
+  double log_prior_proposed = - (nu/2 + 1) * log(proposal  *proposal)   - nu*lambda / (2*proposal  *proposal);
+  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, gi.sigma_i, sigma_i_proposed);
+  double log_ratio = lp_diff + log(proposal) - log(gi.sigma_y);
+
+  //Accept or reject
+  double cut = gi.gen.uniform();
+  if (log(cut) < log_ratio) {
+    gi.logger.log("Accepting proposed sigma_y " + std::to_string(proposal));
+    gi.sigma_y = proposal;
+    gi.sigma_i = sigma_i_proposed;
+  } else {
+    gi.logger.log("Rejecting proposed sigma_y " + std::to_string(proposal));
   }
-
-  sigma = sqrt((nu*lambda + rss)/gen.chi_square(nu+n));
-  pi_con.sigma = sigma/fabs(mscale);
-  pi_mod.sigma = sigma;
 }
 
-void update_sigma_u() {
-  // empty
+void update_sigma_u(ginfo& gi, double* allfit) {
+  double proposal = propose_sigma(gi.sigma_u, gi.ls_sigma_u, gi.gen);
+  double* sigma_i_proposed = calculate_sigma_i(gi, gi.sigma_y, proposal, gi.sigma_v, gi.rho);
+
+  double lp_diff = calculate_lp_diff(gi, allfit, -gi.sigma_u*gi.sigma_u/2, -proposal*proposal/2, gi.sigma_i, sigma_i_proposed);
+  double log_ratio = lp_diff + log(proposal) - log(gi.sigma_u);
+
+  //Accept or reject
+  double cut = gi.gen.uniform();
+  if (log(cut) < log_ratio) {
+    gi.logger.log("Accepting proposed sigma_u " + std::to_string(proposal));
+    gi.sigma_u = proposal;
+    gi.sigma_i = sigma_i_proposed;
+  } else {
+    gi.logger.log("Rejecting proposed sigma_u " + std::to_string(proposal));
+  }
 }
 
-void update_sigma_v() {
-  // empty
+void update_sigma_v(ginfo& gi, double* allfit) {
+  double proposal = propose_sigma(gi.sigma_v, gi.ls_sigma_v, gi.gen);
+  double* sigma_i_proposed = calculate_sigma_i(gi, gi.sigma_y, gi.sigma_u, proposal, gi.rho);
+
+  // TODO: track prior of sigma_u instead of hardcoding to 1
+  double lp_diff = calculate_lp_diff(gi, allfit, -gi.sigma_v*gi.sigma_v/2, -proposal*proposal/2, gi.sigma_i, sigma_i_proposed);
+  double log_ratio = lp_diff + log(proposal) - log(gi.sigma_v);
+
+  //Accept or reject
+  double cut = gi.gen.uniform();
+  if (log(cut) < log_ratio) {
+    gi.logger.log("Accepting proposed sigma_v " + std::to_string(proposal));
+    gi.sigma_v = proposal;
+    gi.sigma_i = sigma_i_proposed;
+  } else {
+    gi.logger.log("Rejecting proposed sigma_v " + std::to_string(proposal));
+  }
 }
 
-void update_rho() {
-  // empty
+void update_rho(ginfo& gi, double* allfit) {
+  double proposal = propose_rho(gi.rho, gi.ls_rho, gi.gen);
+  double* sigma_i_proposed = calculate_sigma_i(gi, gi.sigma_y, gi.sigma_u, gi.sigma_v, proposal);
+
+  double lp_diff = calculate_lp_diff(gi, allfit, log(1 + cos(M_PI*gi.rho)), log(1 + cos(M_PI*proposal)), gi.sigma_i, sigma_i_proposed);
+  double log_ratio = lp_diff + log((proposal + 1) * (1 - proposal) / ((gi.rho + 1) * (1 - gi.rho)));
+
+  //Accept or reject
+  double cut = gi.gen.uniform();
+  if (log(cut) < log_ratio) {
+    gi.logger.log("Accepting proposed rho " + std::to_string(proposal));
+    gi.rho = proposal;
+    gi.sigma_i = sigma_i_proposed;
+  } else {
+    gi.logger.log("Rejecting proposed rho " + std::to_string(proposal));
+  }
 }
 
-void update_sigma(ginfo& gi) {
+// program returns the difference in the log conditional posterior betweeen the propsal and the current value
+double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed, double* sigma_i_current, double* sigma_i_proposed) {
+  double lp_current  = log_prior_current;
+  double lp_proposed = log_prior_proposed;
+
   for (size_t i=0;i<gi.n;i++) {
-    gi.sigma_i[i] = sqrt(gi.sigma_y*gi.sigma_y/gi.w[i] + gi.sigma_u*gi.sigma_u + gi.sigma_v*gi.sigma_v*gi.z_[i] + 2*gi.rho*gi.sigma_u*gi.sigma_v*gi.z_[i]);
+    double r = gi.y[i] - allfit[i];
+    double v_current  = sigma_i_current[i]  * sigma_i_current[i];
+    double v_proposed = sigma_i_proposed[i] * sigma_i_proposed[i];
+    lp_current  += -log(v_current)  / 2 - log(r*r/v_current)  / 2;
+    lp_proposed += -log(v_proposed) / 2 - log(r*r/v_proposed) / 2;
   }
+
+  double lp_diff = lp_proposed - lp_current;
+  return(lp_diff);
+}
+
+//TODO this could take sigmas and return a vector, instead of updating in place. That way we can reuse for proposals
+double* calculate_sigma_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_v, double rho) {
+  // precalculate squares rather than calculating inside loop
+  double v_y = sigma_y*sigma_y;
+  double v_u = sigma_u*sigma_u;
+  double v_v = sigma_v*sigma_v;
+  double twocov_uv = 2*rho*sigma_u*sigma_v;
+  // TODO: faster to calculate sigmas^2 and rho*sigma*sigma outside of the loop?
+  double* sigma_i = new double[gi.n];
+  for (size_t i=0;i<gi.n;i++) {
+    // since we're working in variances, sigma_v^2 should be multiplied by z^2, but z is binary so no need
+    sigma_i[i] = sqrt(v_y/gi.w[i] + v_u + v_v*gi.z_[i] + twocov_uv*gi.z_[i]);
+  }
+
+  return(sigma_i);
 }
 
 void draw_uv(double* u, double* v, ginfo& gi){
