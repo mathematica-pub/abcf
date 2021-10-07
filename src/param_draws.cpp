@@ -109,9 +109,9 @@ void update_trees(std::string context,
     }
 }
 
-void calculate_rwww(int start, int stop, double s2, double scale, double* allfit_spec, double* allfit_alt, std::vector<double>& y, double* w, double& ww, double& rw) {
+void calculate_rwww(int start, int stop, double* sigma_i, double scale, double* allfit_spec, double* allfit_alt, std::vector<double>& y, double& ww, double& rw) {
     for(size_t k=start; k<stop; ++k) {
-        double scale_factor = (w[k]*allfit_spec[k]*allfit_spec[k])/(s2*scale*scale);
+        double scale_factor = (allfit_spec[k]*allfit_spec[k])/(sigma_i[k]*sigma_i[k]*scale*scale);
         
         if(scale_factor!=scale_factor) {
           Rcpp::Rcout << " scale_factor " << scale_factor << endl;
@@ -178,14 +178,13 @@ void update_pi(winfo& wi, Logger& logger, bool verbose) {
     }
 }
 
-void update_mscale(double& mscale, double sigma,
+void update_mscale(double& mscale,
                     double* allfit_con, double* allfit_mod,
                     ginfo& gi, winfo& wi, bool verbose) {
     double ww = 0.0;
     double rw = 0.0;
-    double s2 = sigma*sigma;
 
-    calculate_rwww(0, gi.n, s2, mscale, allfit_con, allfit_mod, gi.y, gi.w, ww, rw);
+    calculate_rwww(0, gi.n, gi.sigma_i, mscale, allfit_con, allfit_mod, gi.y, ww, rw);
 
     double mscale_old = mscale;
     gi.logger.log("Drawing mscale");
@@ -201,15 +200,14 @@ void update_mscale(double& mscale, double sigma,
 }
 
 void update_bscale(double& bscale0, double& bscale1,
-                    bool b_half_normal, double sigma,
+                    bool b_half_normal,
                     double* allfit_con, double* allfit_mod,
                     ginfo& gi, winfo& wi, bool verbose) {
     double ww0 = 0.0, ww1 = 0.0;
     double rw0 = 0.0, rw1 = 0.0;
-    double s2 = sigma*sigma;
 
-    calculate_rwww(0,       gi.ntrt, s2, bscale1, allfit_mod, allfit_con, gi.y, gi.w, ww1, rw1);
-    calculate_rwww(gi.ntrt, gi.n,    s2, bscale0, allfit_mod, allfit_con, gi.y, gi.w, ww0, rw0);
+    calculate_rwww(0,       gi.ntrt, gi.sigma_i, bscale1, allfit_mod, allfit_con, gi.y, ww1, rw1);
+    calculate_rwww(gi.ntrt, gi.n,    gi.sigma_i, bscale0, allfit_mod, allfit_con, gi.y, ww0, rw0);
 
     double bscale0_old = bscale0;
     double bscale1_old = bscale1;
@@ -252,22 +250,16 @@ double propose_rho(double rho_current, double ls_proposal, RNG& gen) {
   return(proposal);
 }
 
-void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& ginfo) {
-  size_t n = ginfo.n;
-  std::vector<double>& y = ginfo.y;
-  double* w = ginfo.w;
-  RNG& gen = ginfo.gen;
-  Logger& logger = ginfo.logger;
-
-  logger.log("Draw sigma");
+void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& gi) {
+  gi.logger.log("Draw sigma");
   double rss = 0.0;
   double restemp = 0.0;
-  for(size_t k=0;k<n;k++) {
-    restemp = y[k]-allfit[k];
-    rss += w[k]*restemp*restemp;
+  for(size_t k=0;k<gi.n;k++) {
+    restemp = gi.y[k]-allfit[k];
+    rss += gi.w[k]*restemp*restemp;
   }
 
-  sigma = sqrt((nu*lambda + rss)/gen.chi_square(nu+n));
+  sigma = sqrt((nu*lambda + rss)/gi.gen.chi_square(nu+gi.n));
   pi_con.sigma = sigma/fabs(mscale);
   pi_mod.sigma = sigma;
 }

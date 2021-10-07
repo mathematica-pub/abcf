@@ -62,12 +62,12 @@ void draw_delta(std::vector<tree>& t, pinfo& pi, double& delta, RNG& gen);
 
 void update_pi(pinfo& pi, double spec_sd, double delta, int ntree, Logger& logger, bool verbose);
 
-void update_mscale(double& mscale, double sigma,
+void update_mscale(double& mscale,
                     double* allfit_con, double* allfit_mod,
-                    ginfo& ginfo, winfo& wi, bool verbose);
+                    ginfo& gi, winfo& wi, bool verbose);
 
 void update_bscale(double& bscale0, double& bscale1,
-                    bool b_half_normal, double sigma,
+                    bool b_half_normal,
                     double* allfit_con, double* allfit_mod,
                     ginfo& gi, winfo& wi, bool verbose);
 
@@ -77,7 +77,7 @@ double propose_sigma(double sigma_current, double ls_proposal, RNG& gen);
 
 double propose_rho(double rho_current, double ls_proposal, RNG& gen);
 
-void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& ginfo);
+void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& gi);
 
 void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda);
 

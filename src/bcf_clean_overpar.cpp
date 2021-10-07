@@ -230,11 +230,10 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   double rho = 0;
   // For others draw from prior if we're doing random effects
   if (randeff) {
-    //initialize_sigmas(sigma_y, sigma_u, sigma_v, rho, gen);
+    initialize_sigmas(sigma_y, sigma_u, sigma_v, rho, gen);
   }
   
   // Initialize but don't yet fill out sigma_i
-  double* sigma_i = new double[n];
 
   //--------------------------------------------------
   //dinfo for control function m(x)
@@ -353,7 +352,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                  .w          = w,
                  .u          = u,
                  .v          = v,
-                 .sigma_i    = sigma_i,
+                 .sigma_i    = new double[n],
                  .sigma_y    = sigma_y,
                  .sigma_u    = sigma_u,
                  .sigma_v    = sigma_v,
@@ -366,7 +365,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                  .logger     = logger};
 
   // Now that we have ginfo, fill out sigma_i
-  sigma_i = calculate_sigma_i(ginfo, sigma_y, sigma_u, sigma_v, rho);
+  ginfo.sigma_i = calculate_sigma_i(ginfo, sigma_y, sigma_u, sigma_v, rho);
 
   winfo wi_con = {.ntree      = ntree_con,
                   .t          = t_con,
@@ -406,17 +405,17 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
     log_iter("Start", iIter+1, nd*thin+burn, sigma_y, sigma_u, sigma_v, rho, mscale, bscale0, bscale1, logger);
     
-    log_fit(y, allfit, allfit_con, allfit_mod, sigma_i, logger, verbose_itr);
+    log_fit(y, allfit, allfit_con, allfit_mod, ginfo.sigma_i, logger, verbose_itr);
 
     for (int k=0; k<n; ++k){
-      weight[k] = mscale*mscale/(sigma_i[k] * sigma_i[k]); // for non-het case, weights need to be divided by sigma square to make it similar to phi
+      weight[k] = mscale*mscale/(ginfo.sigma_i[k] * ginfo.sigma_i[k]); // for non-het case, weights need to be divided by sigma square to make it similar to phi
     }
 
     for(size_t k=0; k<ntrt; ++k) {
-      weight_het[k] = bscale1*bscale1/(sigma_i[k] * sigma_i[k]);
+      weight_het[k] = bscale1*bscale1/(ginfo.sigma_i[k] * ginfo.sigma_i[k]);
     }
     for(size_t k=ntrt; k<n; ++k) {
-      weight_het[k] = bscale0*bscale0/(sigma_i[k] * sigma_i[k]);
+      weight_het[k] = bscale0*bscale0/(ginfo.sigma_i[k] * ginfo.sigma_i[k]);
     }
 
     logger.log("=====================================");
@@ -439,13 +438,13 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
     if(use_bscale) {
       update_bscale(bscale0, bscale1, 
-                    b_half_normal, sigma_y,
+                    b_half_normal,
                     allfit_con, allfit_mod,
                     ginfo, wi_mod, verbose_itr);
     }
 
     if(use_mscale) {
-     update_mscale(mscale, sigma_y, 
+     update_mscale(mscale,
                     allfit_con, allfit_mod,
                     ginfo, wi_con, verbose_itr);
     }
@@ -468,7 +467,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       // also include u/v in the fit?
     } else {
       update_sigma_y_conj(allfit, sigma_y, nu, lambda, mscale, pi_con, pi_mod, ginfo);
-      sigma_i = calculate_sigma_i(ginfo, sigma_y, sigma_u, sigma_v, rho);
+      ginfo.sigma_i = calculate_sigma_i(ginfo, sigma_y, sigma_u, sigma_v, rho);
     }
 
     if( ((iIter>=burn) & (iIter % thin==0)) )  {
@@ -485,7 +484,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
     log_iter("End", iIter+1, nd*thin+burn, sigma_y, sigma_u, sigma_v, rho, mscale, bscale0, bscale1, logger);
     
-    log_fit(y, allfit, allfit_con, allfit_mod, sigma_i, logger, verbose_itr);
+    log_fit(y, allfit, allfit_con, allfit_mod, ginfo.sigma_i, logger, verbose_itr);
 
   } // end MCMC Loop
 
