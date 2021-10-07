@@ -278,6 +278,7 @@ void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda) {
   if (log(cut) < log_ratio) {
     gi.logger.log("Accepting proposed sigma_y " + std::to_string(proposal));
     gi.sigma_y = proposal;
+    gi.ac_sigma_y += 1;
     gi.sigma_i = sigma_i_proposed;
   } else {
     gi.logger.log("Rejecting proposed sigma_y " + std::to_string(proposal));
@@ -296,6 +297,7 @@ void update_sigma_u(ginfo& gi, double* allfit) {
   if (log(cut) < log_ratio) {
     gi.logger.log("Accepting proposed sigma_u " + std::to_string(proposal));
     gi.sigma_u = proposal;
+    gi.ac_sigma_u += 1;
     gi.sigma_i = sigma_i_proposed;
   } else {
     gi.logger.log("Rejecting proposed sigma_u " + std::to_string(proposal));
@@ -315,6 +317,7 @@ void update_sigma_v(ginfo& gi, double* allfit) {
   if (log(cut) < log_ratio) {
     gi.logger.log("Accepting proposed sigma_v " + std::to_string(proposal));
     gi.sigma_v = proposal;
+    gi.ac_sigma_v += 1;
     gi.sigma_i = sigma_i_proposed;
   } else {
     gi.logger.log("Rejecting proposed sigma_v " + std::to_string(proposal));
@@ -333,6 +336,7 @@ void update_rho(ginfo& gi, double* allfit) {
   if (log(cut) < log_ratio) {
     gi.logger.log("Accepting proposed rho " + std::to_string(proposal));
     gi.rho = proposal;
+    gi.ac_rho += 1;
     gi.sigma_i = sigma_i_proposed;
   } else {
     gi.logger.log("Rejecting proposed rho " + std::to_string(proposal));
@@ -378,7 +382,28 @@ void draw_uv(double* u, double* v, ginfo& gi){
     u[i] = 0;
     v[i] = 0;
   }
-};
+}
+
+void update_adaptive_ls(ginfo& gi, size_t iter, int batch_size, double ac_target) {
+  // Convert from target acceptance % to target # accepted iters
+  double ac_count = ac_target * (iter+1);
+  // We will incrememnt the log_sigma terms by 1/# batches completed
+  double ls_incr = batch_size / (iter + 1.);
+  
+  gi.ls_sigma_y = calculate_adaptive_ls(gi.ac_sigma_y, ac_count, gi.ls_sigma_y, ls_incr);
+  gi.ls_sigma_u = calculate_adaptive_ls(gi.ac_sigma_u, ac_count, gi.ls_sigma_u, ls_incr);
+  gi.ls_sigma_v = calculate_adaptive_ls(gi.ac_sigma_v, ac_count, gi.ls_sigma_v, ls_incr);
+  gi.ls_rho     = calculate_adaptive_ls(gi.ac_rho,     ac_count, gi.ls_rho,     ls_incr);
+}
+
+double calculate_adaptive_ls(int accepted, double target, double log_sigma, double increment) {
+  if (accepted < target) {
+    log_sigma += -increment;
+  } else if (accepted > target) {
+    log_sigma += increment;
+  }
+  return(log_sigma);
+}
 
 void save_values(size_t& save_ctr, int n, int ntrt,
                 Rcpp::NumericVector& msd_post, Rcpp::NumericVector& bsd_post, 

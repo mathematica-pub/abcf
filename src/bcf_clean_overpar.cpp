@@ -41,6 +41,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   int status_interval=100,
                   bool RJ= false, bool use_mscale=true, bool use_bscale=true, 
                   bool b_half_normal=true, bool randeff=false,
+                  int batch_size = 100, double acceptance_target=0.44,
                   double trt_init = 1.0, int verbose=1)
 {
 
@@ -338,12 +339,6 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     bscale_idx.push_back(i<ntrt ? bscale1 : bscale0);
   }
 
-  // Initialize the log-sigma parameters for adaptive MH
-  double ls_sigma_y = 0;
-  double ls_sigma_u = 0;
-  double ls_sigma_v = 0;
-  double ls_rho     = 0;
-
   // General info - shortcut for passing to functions
   ginfo ginfo = {.n          = n,
                  .ntrt       = ntrt,
@@ -357,10 +352,14 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                  .sigma_u    = sigma_u,
                  .sigma_v    = sigma_v,
                  .rho        = rho,
-                 .ls_sigma_y = ls_sigma_y,
-                 .ls_sigma_u = ls_sigma_u,
-                 .ls_sigma_v = ls_sigma_v,
-                 .ls_rho     = ls_rho,
+                 .ls_sigma_y = 0.,
+                 .ls_sigma_u = 0.,
+                 .ls_sigma_v = 0.,
+                 .ls_rho     = 0.,
+                 .ac_sigma_y = 0,
+                 .ac_sigma_u = 0,
+                 .ac_sigma_v = 0,
+                 .ac_rho     = 0,
                  .gen        = gen,
                  .logger     = logger};
 
@@ -465,6 +464,10 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
       draw_uv(u, v, ginfo);
       // also include u/v in the fit?
+
+      if ((iIter+1) % batch_size == 0) {
+        update_adaptive_ls(ginfo, iIter, batch_size, acceptance_target);
+      }
     } else {
       update_sigma_y_conj(allfit, sigma_y, nu, lambda, mscale, pi_con, pi_mod, ginfo);
       ginfo.sigma_i = calculate_sigma_i(ginfo, sigma_y, sigma_u, sigma_v, rho);

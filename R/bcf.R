@@ -131,6 +131,8 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
 #' @param use_muscale Use a half-Cauchy hyperprior on the scale of mu.
 #' @param use_tauscale Use a half-Normal prior on the scale of tau.
 #' @param include_random_effects Use individual-level random effects u and v.
+#' @param batch_size Batch size to use for adapative Metropolis Hastings sampling (random effects model only)
+#' @param acceptance_target Target acceptance rate for adaptive MH
 #' @param verbose Integer, whether to print log of MCMC iterations, defaults to 1 - basic logging of iteration progress.
 #' Setting to 0 disables logging, while setting to 2 enables logging of detailed statistics each iteration,
 #' and setting to 3 enables logging of individual trees.
@@ -240,7 +242,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 log_file=file.path('.',sprintf('bcf_log_%s.txt',format(Sys.time(), "%Y%m%d_%H%M%S"))),
                 nu = 3, lambda = NULL, sigq = .9, sighat = NULL,
                 include_pi = "control", use_muscale=TRUE, use_tauscale=TRUE,
-                include_random_effects=FALSE, verbose=1
+                include_random_effects=FALSE, batch_size = 100, acceptance_target=.44,
+                verbose=1
 ) {
 
 
@@ -280,6 +283,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   if(any(!is.finite(pihat))) stop("Non-numeric values in pihat")
   if(!all(sort(unique(z)) == c(0,1))) stop("z must be a vector of 0's and 1's, with at least one of each")
   if(!(include_random_effects %in% c(TRUE,FALSE))) stop("include_random_effects must be TRUE or FALSE")
+  if(round(batch_size)!=batch_size | batch_size<1) stop("batch_size must be an integer larger than 0")
+  if(acceptance_target<0 | acceptance_target>1) stop("acceptance_target must be a number from 0-1")
   if(!(verbose %in% 0:4)) stop("verbose must be an integer from 0 to 4")
 
   if(length(unique(y))<5) warning("y appears to be discrete")
@@ -359,6 +364,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                                  status_interval = update_interval,
                                  use_mscale = use_muscale, use_bscale = use_tauscale,
                                  b_half_normal = TRUE, randeff = include_random_effects,
+                                 batch_size=batch_size,acceptance_target=acceptance_target,
                                  verbose=verbose)
 
     cat("bcfoverparRcppClean returned to R\n")

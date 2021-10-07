@@ -23,10 +23,14 @@ struct ginfo {
    double& sigma_u;
    double& sigma_v;
    double& rho;
-   double& ls_sigma_y;
-   double& ls_sigma_u;
-   double& ls_sigma_v;
-   double& ls_rho;
+   double ls_sigma_y;
+   double ls_sigma_u;
+   double ls_sigma_v;
+   double ls_rho;
+   int ac_sigma_y;
+   int ac_sigma_u;
+   int ac_sigma_v;
+   int ac_rho;
    // Helper bits
    RNG& gen;
    Logger& logger;
@@ -92,6 +96,10 @@ double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, do
 double* calculate_sigma_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_v, double rho);
 
 void draw_uv(double* u, double* v, ginfo& gi);
+
+void update_adaptive_ls(ginfo& gi, size_t iter, int batch_size, double ac_target=0.44);
+
+double calculate_adaptive_ls(int accepted, double target, double log_sigma, double increment);
 
 void save_values(size_t& save_ctr, int n, int ntrt,
                 Rcpp::NumericVector& msd_post, Rcpp::NumericVector& bsd_post, 

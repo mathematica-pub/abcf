@@ -38,6 +38,8 @@ bcf(
   use_muscale = TRUE,
   use_tauscale = TRUE,
   include_random_effects = FALSE,
+  batch_size = 100,
+  acceptance_target = 0.44,
   verbose = 1
 )
 }
@@ -107,6 +109,10 @@ or "both" are HIGHLY recommended with observational data.}
 \item{use_tauscale}{Use a half-Normal prior on the scale of tau.}
 
 \item{include_random_effects}{Use individual-level random effects u and v.}
+
+\item{batch_size}{Batch size to use for adapative Metropolis Hastings sampling (random effects model only)}
+
+\item{acceptance_target}{Target acceptance rate for adaptive MH}
 
 \item{verbose}{Integer, whether to print log of MCMC iterations, defaults to 1 - basic logging of iteration progress.
 Setting to 0 disables logging, while setting to 2 enables logging of detailed statistics each iteration,
