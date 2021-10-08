@@ -265,6 +265,7 @@ void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda
 }
 
 void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda) {
+  // Proposal is an adaptive MH draw, scaled by ls_sigma_y
   double proposal = propose_sigma(gi.sigma_y, gi.ls_sigma_y, gi.gen);
   double* sigma_i_proposed = calculate_sigma_i(gi, proposal, gi.sigma_u, gi.sigma_v, gi.rho);
 
@@ -286,10 +287,13 @@ void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda) {
 }
 
 void update_sigma_u(ginfo& gi, double* allfit) {
+  // Proposal is an adaptive MH draw, scaled by ls_sigma_u
   double proposal = propose_sigma(gi.sigma_u, gi.ls_sigma_u, gi.gen);
   double* sigma_i_proposed = calculate_sigma_i(gi, gi.sigma_y, proposal, gi.sigma_v, gi.rho);
 
-  double lp_diff = calculate_lp_diff(gi, allfit, -gi.sigma_u*gi.sigma_u/2, -proposal*proposal/2, gi.sigma_i, sigma_i_proposed);
+  double log_prior_current =  -gi.sigma_u*gi.sigma_u/2;
+  double log_prior_proposed = -proposal*proposal/2;
+  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, gi.sigma_i, sigma_i_proposed);
   double log_ratio = lp_diff + log(proposal) - log(gi.sigma_u);
 
   //Accept or reject
@@ -305,11 +309,13 @@ void update_sigma_u(ginfo& gi, double* allfit) {
 }
 
 void update_sigma_v(ginfo& gi, double* allfit) {
+  // Proposal is an adaptive MH draw, scaled by ls_sigma_v
   double proposal = propose_sigma(gi.sigma_v, gi.ls_sigma_v, gi.gen);
   double* sigma_i_proposed = calculate_sigma_i(gi, gi.sigma_y, gi.sigma_u, proposal, gi.rho);
 
-  // TODO: track prior of sigma_u instead of hardcoding to 1
-  double lp_diff = calculate_lp_diff(gi, allfit, -gi.sigma_v*gi.sigma_v/2, -proposal*proposal/2, gi.sigma_i, sigma_i_proposed);
+  double log_prior_current =  -gi.sigma_v*gi.sigma_v/2;
+  double log_prior_proposed = -proposal*proposal/2;
+  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, gi.sigma_i, sigma_i_proposed);
   double log_ratio = lp_diff + log(proposal) - log(gi.sigma_v);
 
   //Accept or reject
@@ -325,10 +331,13 @@ void update_sigma_v(ginfo& gi, double* allfit) {
 }
 
 void update_rho(ginfo& gi, double* allfit) {
+  // Proposal is an adaptive MH draw, scaled by ls_rho
   double proposal = propose_rho(gi.rho, gi.ls_rho, gi.gen);
   double* sigma_i_proposed = calculate_sigma_i(gi, gi.sigma_y, gi.sigma_u, gi.sigma_v, proposal);
 
-  double lp_diff = calculate_lp_diff(gi, allfit, log(1 + cos(M_PI*gi.rho)), log(1 + cos(M_PI*proposal)), gi.sigma_i, sigma_i_proposed);
+  double log_prior_current  = log(1 + cos(M_PI*gi.rho));
+  double log_prior_proposed = log(1 + cos(M_PI*proposal));
+  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, gi.sigma_i, sigma_i_proposed);
   double log_ratio = lp_diff + log((proposal + 1) * (1 - proposal) / ((gi.rho + 1) * (1 - gi.rho)));
 
   //Accept or reject
@@ -345,29 +354,38 @@ void update_rho(ginfo& gi, double* allfit) {
 
 // program returns the difference in the log conditional posterior betweeen the propsal and the current value
 double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed, double* sigma_i_current, double* sigma_i_proposed) {
-  double lp_current  = log_prior_current;
-  double lp_proposed = log_prior_proposed;
+  // Log likelihood requires two different sums: sum of the log of sigma_i^2, and sum of resid/sigma_i^2
+  double sum_log_sig2_i_current     = 0;
+  double sum_r_over_sig2_i_current  = 0;
+  double sum_log_sig2_i_proposed    = 0;
+  double sum_r_over_sig2_i_proposed = 0;
 
   for (size_t i=0;i<gi.n;i++) {
     double r = gi.y[i] - allfit[i];
+    double r2 = r*r;
     double v_current  = sigma_i_current[i]  * sigma_i_current[i];
     double v_proposed = sigma_i_proposed[i] * sigma_i_proposed[i];
-    lp_current  += -log(v_current)  / 2 - log(r*r/v_current)  / 2;
-    lp_proposed += -log(v_proposed) / 2 - log(r*r/v_proposed) / 2;
+    
+    sum_log_sig2_i_current  += log(v_current);
+    sum_log_sig2_i_proposed += log(v_proposed);
+
+    sum_r_over_sig2_i_current  += r2/v_current;
+    sum_r_over_sig2_i_proposed += r2/v_proposed;
   }
+  // Now compose the log posteriors: log prior + log likelihood
+  double lp_current  = log_prior_current  -0.5 * sum_log_sig2_i_current  - 0.5 * sum_r_over_sig2_i_current;
+  double lp_proposed = log_prior_proposed -0.5 * sum_log_sig2_i_proposed - 0.5 * sum_r_over_sig2_i_proposed;
 
   double lp_diff = lp_proposed - lp_current;
   return(lp_diff);
 }
 
-//TODO this could take sigmas and return a vector, instead of updating in place. That way we can reuse for proposals
 double* calculate_sigma_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_v, double rho) {
   // precalculate squares rather than calculating inside loop
   double v_y = sigma_y*sigma_y;
   double v_u = sigma_u*sigma_u;
   double v_v = sigma_v*sigma_v;
   double twocov_uv = 2*rho*sigma_u*sigma_v;
-  // TODO: faster to calculate sigmas^2 and rho*sigma*sigma outside of the loop?
   double* sigma_i = new double[gi.n];
   for (size_t i=0;i<gi.n;i++) {
     // since we're working in variances, sigma_v^2 should be multiplied by z^2, but z is binary so no need

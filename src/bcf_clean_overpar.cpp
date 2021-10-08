@@ -233,8 +233,6 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   if (randeff) {
     initialize_sigmas(sigma_y, sigma_u, sigma_v, rho, gen);
   }
-  
-  // Initialize but don't yet fill out sigma_i
 
   //--------------------------------------------------
   //dinfo for control function m(x)
@@ -352,14 +350,14 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                  .sigma_u    = sigma_u,
                  .sigma_v    = sigma_v,
                  .rho        = rho,
-                 .ls_sigma_y = 0.,
-                 .ls_sigma_u = 0.,
-                 .ls_sigma_v = 0.,
-                 .ls_rho     = 0.,
-                 .ac_sigma_y = 0,
-                 .ac_sigma_u = 0,
-                 .ac_sigma_v = 0,
-                 .ac_rho     = 0,
+                 .ls_sigma_y = 0.,            // log of scale for proposals for sigma_y
+                 .ls_sigma_u = 0.,            // log of scale for proposals for sigma_u
+                 .ls_sigma_v = 0.,            // log of scale for proposals for sigma_v
+                 .ls_rho     = 0.,            // log of scale for proposals for rho
+                 .ac_sigma_y = 0,             // Number of accepted proposals for sigma_y
+                 .ac_sigma_u = 0,             // Number of accepted proposals for sigma_u
+                 .ac_sigma_v = 0,             // Number of accepted proposals for sigma_v
+                 .ac_rho     = 0,             // Number of accepted proposals for rho
                  .gen        = gen,
                  .logger     = logger};
 

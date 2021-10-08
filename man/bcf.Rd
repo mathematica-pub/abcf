@@ -39,7 +39,6 @@ bcf(
   use_tauscale = TRUE,
   include_random_effects = FALSE,
   batch_size = 100,
-  acceptance_target = 0.44,
   verbose = 1
 )
 }
@@ -112,11 +111,11 @@ or "both" are HIGHLY recommended with observational data.}
 
 \item{batch_size}{Batch size to use for adapative Metropolis Hastings sampling (random effects model only)}
 
-\item{acceptance_target}{Target acceptance rate for adaptive MH}
-
 \item{verbose}{Integer, whether to print log of MCMC iterations, defaults to 1 - basic logging of iteration progress.
 Setting to 0 disables logging, while setting to 2 enables logging of detailed statistics each iteration,
 and setting to 3 enables logging of individual trees.}
+
+\item{acceptance_target}{Target acceptance rate for adaptive MH}
 }
 \value{
 A fitted bcf object that is a list with elements

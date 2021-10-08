@@ -242,7 +242,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 log_file=file.path('.',sprintf('bcf_log_%s.txt',format(Sys.time(), "%Y%m%d_%H%M%S"))),
                 nu = 3, lambda = NULL, sigq = .9, sighat = NULL,
                 include_pi = "control", use_muscale=TRUE, use_tauscale=TRUE,
-                include_random_effects=FALSE, batch_size = 100, acceptance_target=.44,
+                include_random_effects=FALSE, batch_size = 100,
                 verbose=1
 ) {
 
@@ -284,7 +284,6 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   if(!all(sort(unique(z)) == c(0,1))) stop("z must be a vector of 0's and 1's, with at least one of each")
   if(!(include_random_effects %in% c(TRUE,FALSE))) stop("include_random_effects must be TRUE or FALSE")
   if(round(batch_size)!=batch_size | batch_size<1) stop("batch_size must be an integer larger than 0")
-  if(acceptance_target<0 | acceptance_target>1) stop("acceptance_target must be a number from 0-1")
   if(!(verbose %in% 0:4)) stop("verbose must be an integer from 0 to 4")
 
   if(length(unique(y))<5) warning("y appears to be discrete")
@@ -364,7 +363,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                                  status_interval = update_interval,
                                  use_mscale = use_muscale, use_bscale = use_tauscale,
                                  b_half_normal = TRUE, randeff = include_random_effects,
-                                 batch_size=batch_size,acceptance_target=acceptance_target,
+                                 batch_size=batch_size, acceptance_target=0.44,
                                  verbose=verbose)
 
     cat("bcfoverparRcppClean returned to R\n")
