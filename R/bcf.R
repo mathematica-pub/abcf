@@ -383,13 +383,15 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
 
     v_post = sdy*fitbcf$u[,order(perm)]
 
+    sigma_i = sdy*fitbcf$sigma_i[,order(perm)]
+
     yhat_post = muy + sdy*fitbcf$yhat_post[,order(perm)]
 
     list(sigma_y    = sdy*fitbcf$sigma_y,
          sigma_u    = sdy*fitbcf$sigma_u,
          sigma_v    = sdy*fitbcf$sigma_v,
          rho        = fitbcf$rho,
-         sigma_i    = sdy*fitbcf$sigma_i,
+         sigma_i    = sigma_i,
          yhat       = yhat_post,
          sdy        = sdy,
          con_sd     = con_sd,
