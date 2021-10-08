@@ -18,7 +18,7 @@ struct ginfo {
    double* w;
    double* u;
    double* v;
-   double* sigma_i;
+   double* sigma2_i;
    double& sigma_y;
    double& sigma_u;
    double& sigma_v;
@@ -58,7 +58,7 @@ void update_trees(std::string context,
                   double mscale, double bscale0, double bscale1,
                   ginfo& gi, winfo& wi, bool verbose);
 
-void calculate_rwww(int start, int stop, double s2, double scale, double* allfit_spec, double* allfit_alt, std::vector<double>& y, double* w, double& ww, double& rw);
+void calculate_rwww(int start, int stop, double* sigma2_i, double scale, double* allfit_spec, double* allfit_alt, std::vector<double>& y, double* w, double& ww, double& rw);
 
 void draw_scale(double& scale, double scale_prec, double ww, double rw, RNG& gen, Logger& logger, bool verbose);
 
@@ -91,9 +91,9 @@ void update_sigma_v(ginfo& gi, double* allfit);
 
 void update_rho(ginfo& gi, double* allfit);
 
-double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed, double* sigma_i_current, double* sigma_i_proposed);
+double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed, double* sigma2_i_current, double* sigma2_i_proposed);
 
-double* calculate_sigma_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_v, double rho);
+double* calculate_sigma2_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_v, double rho);
 
 void draw_uv(double* u, double* v, ginfo& gi);
 

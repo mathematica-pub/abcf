@@ -342,7 +342,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                  .w          = w,
                  .u          = u,
                  .v          = v,
-                 .sigma_i    = new double[n],
+                 .sigma2_i    = new double[n],
                  .sigma_y    = sigma_y,
                  .sigma_u    = sigma_u,
                  .sigma_v    = sigma_v,
@@ -358,8 +358,8 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                  .gen        = gen,
                  .logger     = logger};
 
-  // Now that we have ginfo, fill out sigma_i
-  ginfo.sigma_i = calculate_sigma_i(ginfo, sigma_y, sigma_u, sigma_v, rho);
+  // Now that we have ginfo, fill out sigma2_i
+  ginfo.sigma2_i = calculate_sigma2_i(ginfo, sigma_y, sigma_u, sigma_v, rho);
 
   winfo wi_con = {.ntree      = ntree_con,
                   .t          = t_con,
@@ -399,17 +399,17 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
     log_iter("Start", iIter+1, nd*thin+burn, sigma_y, sigma_u, sigma_v, rho, mscale, bscale0, bscale1, logger);
     
-    log_fit(y, allfit, allfit_con, allfit_mod, ginfo.sigma_i, logger, verbose_itr);
+    log_fit(y, allfit, allfit_con, allfit_mod, ginfo.sigma2_i, logger, verbose_itr);
 
     for (int k=0; k<n; ++k){
-      weight[k] = mscale*mscale/(ginfo.sigma_i[k] * ginfo.sigma_i[k]); // for non-het case, weights need to be divided by sigma square to make it similar to phi
+      weight[k] = mscale*mscale/(ginfo.sigma2_i[k]); // for non-het case, weights need to be divided by sigma square to make it similar to phi
     }
 
     for(size_t k=0; k<ntrt; ++k) {
-      weight_het[k] = bscale1*bscale1/(ginfo.sigma_i[k] * ginfo.sigma_i[k]);
+      weight_het[k] = bscale1*bscale1/(ginfo.sigma2_i[k]);
     }
     for(size_t k=ntrt; k<n; ++k) {
-      weight_het[k] = bscale0*bscale0/(ginfo.sigma_i[k] * ginfo.sigma_i[k]);
+      weight_het[k] = bscale0*bscale0/(ginfo.sigma2_i[k]);
     }
 
     logger.log("=====================================");
@@ -451,7 +451,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     }
 
     if (randeff) {
-      // each of these updates will also update sigma_i when they run
+      // each of these updates will also update sigma2_i when they run
       update_sigma_y(ginfo, allfit, nu, lambda);
       update_sigma_u(ginfo, allfit);
       update_sigma_v(ginfo, allfit);
@@ -465,7 +465,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       }
     } else {
       update_sigma_y_conj(allfit, sigma_y, nu, lambda, mscale, pi_con, pi_mod, ginfo);
-      ginfo.sigma_i = calculate_sigma_i(ginfo, sigma_y, sigma_u, sigma_v, rho);
+      ginfo.sigma2_i = calculate_sigma2_i(ginfo, sigma_y, sigma_u, sigma_v, rho);
     }
 
     if( ((iIter>=burn) & (iIter % thin==0)) )  {
@@ -482,7 +482,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
     log_iter("End", iIter+1, nd*thin+burn, sigma_y, sigma_u, sigma_v, rho, mscale, bscale0, bscale1, logger);
     
-    log_fit(y, allfit, allfit_con, allfit_mod, ginfo.sigma_i, logger, verbose_itr);
+    log_fit(y, allfit, allfit_con, allfit_mod, ginfo.sigma2_i, logger, verbose_itr);
 
   } // end MCMC Loop
 

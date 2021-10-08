@@ -109,9 +109,10 @@ void update_trees(std::string context,
     }
 }
 
-void calculate_rwww(int start, int stop, double* sigma_i, double scale, double* allfit_spec, double* allfit_alt, std::vector<double>& y, double& ww, double& rw) {
+void calculate_rwww(int start, int stop, double* sigma2_i, double scale, double* allfit_spec, double* allfit_alt, std::vector<double>& y, double& ww, double& rw) {
+    double scale2 = scale*scale;
     for(size_t k=start; k<stop; ++k) {
-        double scale_factor = (allfit_spec[k]*allfit_spec[k])/(sigma_i[k]*sigma_i[k]*scale*scale);
+        double scale_factor = (allfit_spec[k]*allfit_spec[k])/(sigma2_i[k]*scale2);
         
         if(scale_factor!=scale_factor) {
           Rcpp::Rcout << " scale_factor " << scale_factor << endl;
@@ -184,7 +185,7 @@ void update_mscale(double& mscale,
     double ww = 0.0;
     double rw = 0.0;
 
-    calculate_rwww(0, gi.n, gi.sigma_i, mscale, allfit_con, allfit_mod, gi.y, ww, rw);
+    calculate_rwww(0, gi.n, gi.sigma2_i, mscale, allfit_con, allfit_mod, gi.y, ww, rw);
 
     double mscale_old = mscale;
     gi.logger.log("Drawing mscale");
@@ -206,8 +207,8 @@ void update_bscale(double& bscale0, double& bscale1,
     double ww0 = 0.0, ww1 = 0.0;
     double rw0 = 0.0, rw1 = 0.0;
 
-    calculate_rwww(0,       gi.ntrt, gi.sigma_i, bscale1, allfit_mod, allfit_con, gi.y, ww1, rw1);
-    calculate_rwww(gi.ntrt, gi.n,    gi.sigma_i, bscale0, allfit_mod, allfit_con, gi.y, ww0, rw0);
+    calculate_rwww(0,       gi.ntrt, gi.sigma2_i, bscale1, allfit_mod, allfit_con, gi.y, ww1, rw1);
+    calculate_rwww(gi.ntrt, gi.n,    gi.sigma2_i, bscale0, allfit_mod, allfit_con, gi.y, ww0, rw0);
 
     double bscale0_old = bscale0;
     double bscale1_old = bscale1;
@@ -265,11 +266,11 @@ void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda
 void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda) {
   // Proposal is an adaptive MH draw, scaled by ls_sigma_y
   double proposal = propose_sigma(gi.sigma_y, gi.ls_sigma_y, gi.gen);
-  double* sigma_i_proposed = calculate_sigma_i(gi, proposal, gi.sigma_u, gi.sigma_v, gi.rho);
+  double* sigma2_i_proposed = calculate_sigma2_i(gi, proposal, gi.sigma_u, gi.sigma_v, gi.rho);
 
   double log_prior_current  = - (nu/2 + 1) * log(gi.sigma_y*gi.sigma_y) - nu*lambda / (2*gi.sigma_y*gi.sigma_y);
   double log_prior_proposed = - (nu/2 + 1) * log(proposal  *proposal)   - nu*lambda / (2*proposal  *proposal);
-  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, gi.sigma_i, sigma_i_proposed);
+  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, gi.sigma2_i, sigma2_i_proposed);
   double log_ratio = lp_diff + log(proposal) - log(gi.sigma_y);
 
   //Accept or reject
@@ -278,7 +279,7 @@ void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda) {
     gi.logger.log("Accepting proposed sigma_y " + std::to_string(proposal));
     gi.sigma_y = proposal;
     gi.ac_sigma_y += 1;
-    gi.sigma_i = sigma_i_proposed;
+    gi.sigma2_i = sigma2_i_proposed;
   } else {
     gi.logger.log("Rejecting proposed sigma_y " + std::to_string(proposal));
   }
@@ -287,11 +288,11 @@ void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda) {
 void update_sigma_u(ginfo& gi, double* allfit) {
   // Proposal is an adaptive MH draw, scaled by ls_sigma_u
   double proposal = propose_sigma(gi.sigma_u, gi.ls_sigma_u, gi.gen);
-  double* sigma_i_proposed = calculate_sigma_i(gi, gi.sigma_y, proposal, gi.sigma_v, gi.rho);
+  double* sigma2_i_proposed = calculate_sigma2_i(gi, gi.sigma_y, proposal, gi.sigma_v, gi.rho);
 
   double log_prior_current =  -gi.sigma_u*gi.sigma_u/2;
   double log_prior_proposed = -proposal*proposal/2;
-  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, gi.sigma_i, sigma_i_proposed);
+  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, gi.sigma2_i, sigma2_i_proposed);
   double log_ratio = lp_diff + log(proposal) - log(gi.sigma_u);
 
   //Accept or reject
@@ -300,7 +301,7 @@ void update_sigma_u(ginfo& gi, double* allfit) {
     gi.logger.log("Accepting proposed sigma_u " + std::to_string(proposal));
     gi.sigma_u = proposal;
     gi.ac_sigma_u += 1;
-    gi.sigma_i = sigma_i_proposed;
+    gi.sigma2_i = sigma2_i_proposed;
   } else {
     gi.logger.log("Rejecting proposed sigma_u " + std::to_string(proposal));
   }
@@ -309,11 +310,11 @@ void update_sigma_u(ginfo& gi, double* allfit) {
 void update_sigma_v(ginfo& gi, double* allfit) {
   // Proposal is an adaptive MH draw, scaled by ls_sigma_v
   double proposal = propose_sigma(gi.sigma_v, gi.ls_sigma_v, gi.gen);
-  double* sigma_i_proposed = calculate_sigma_i(gi, gi.sigma_y, gi.sigma_u, proposal, gi.rho);
+  double* sigma2_i_proposed = calculate_sigma2_i(gi, gi.sigma_y, gi.sigma_u, proposal, gi.rho);
 
   double log_prior_current =  -gi.sigma_v*gi.sigma_v/2;
   double log_prior_proposed = -proposal*proposal/2;
-  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, gi.sigma_i, sigma_i_proposed);
+  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, gi.sigma2_i, sigma2_i_proposed);
   double log_ratio = lp_diff + log(proposal) - log(gi.sigma_v);
 
   //Accept or reject
@@ -322,7 +323,7 @@ void update_sigma_v(ginfo& gi, double* allfit) {
     gi.logger.log("Accepting proposed sigma_v " + std::to_string(proposal));
     gi.sigma_v = proposal;
     gi.ac_sigma_v += 1;
-    gi.sigma_i = sigma_i_proposed;
+    gi.sigma2_i = sigma2_i_proposed;
   } else {
     gi.logger.log("Rejecting proposed sigma_v " + std::to_string(proposal));
   }
@@ -331,11 +332,11 @@ void update_sigma_v(ginfo& gi, double* allfit) {
 void update_rho(ginfo& gi, double* allfit) {
   // Proposal is an adaptive MH draw, scaled by ls_rho
   double proposal = propose_rho(gi.rho, gi.ls_rho, gi.gen);
-  double* sigma_i_proposed = calculate_sigma_i(gi, gi.sigma_y, gi.sigma_u, gi.sigma_v, proposal);
+  double* sigma2_i_proposed = calculate_sigma2_i(gi, gi.sigma_y, gi.sigma_u, gi.sigma_v, proposal);
 
   double log_prior_current  = log(1 + cos(M_PI*gi.rho));
   double log_prior_proposed = log(1 + cos(M_PI*proposal));
-  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, gi.sigma_i, sigma_i_proposed);
+  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, gi.sigma2_i, sigma2_i_proposed);
   double log_ratio = lp_diff + log((proposal + 1) * (1 - proposal) / ((gi.rho + 1) * (1 - gi.rho)));
 
   //Accept or reject
@@ -344,14 +345,14 @@ void update_rho(ginfo& gi, double* allfit) {
     gi.logger.log("Accepting proposed rho " + std::to_string(proposal));
     gi.rho = proposal;
     gi.ac_rho += 1;
-    gi.sigma_i = sigma_i_proposed;
+    gi.sigma2_i = sigma2_i_proposed;
   } else {
     gi.logger.log("Rejecting proposed rho " + std::to_string(proposal));
   }
 }
 
 // program returns the difference in the log conditional posterior betweeen the propsal and the current value
-double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed, double* sigma_i_current, double* sigma_i_proposed) {
+double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed, double* sigma2_i_current, double* sigma2_i_proposed) {
   // Log likelihood requires two different sums: sum of the log of sigma_i^2, and sum of resid/sigma_i^2
   double sum_log_sig2_i_current     = 0;
   double sum_r_over_sig2_i_current  = 0;
@@ -361,14 +362,14 @@ double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, do
   for (size_t i=0;i<gi.n;i++) {
     double r = gi.y[i] - allfit[i];
     double r2 = r*r;
-    double v_current  = sigma_i_current[i]  * sigma_i_current[i];
-    double v_proposed = sigma_i_proposed[i] * sigma_i_proposed[i];
+    double sigma2_current  = sigma2_i_current[i];
+    double sigma2_proposed = sigma2_i_proposed[i];
     
-    sum_log_sig2_i_current  += log(v_current);
-    sum_log_sig2_i_proposed += log(v_proposed);
+    sum_log_sig2_i_current  += log(sigma2_current);
+    sum_log_sig2_i_proposed += log(sigma2_proposed);
 
-    sum_r_over_sig2_i_current  += r2/v_current;
-    sum_r_over_sig2_i_proposed += r2/v_proposed;
+    sum_r_over_sig2_i_current  += r2/sigma2_current;
+    sum_r_over_sig2_i_proposed += r2/sigma2_proposed;
   }
   // Now compose the log posteriors: log prior + log likelihood
   double lp_current  = log_prior_current  -0.5 * sum_log_sig2_i_current  - 0.5 * sum_r_over_sig2_i_current;
@@ -378,19 +379,19 @@ double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, do
   return(lp_diff);
 }
 
-double* calculate_sigma_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_v, double rho) {
+double* calculate_sigma2_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_v, double rho) {
   // precalculate squares rather than calculating inside loop
   double v_y = sigma_y*sigma_y;
   double v_u = sigma_u*sigma_u;
   double v_v = sigma_v*sigma_v;
   double twocov_uv = 2*rho*sigma_u*sigma_v;
-  double* sigma_i = new double[gi.n];
+  double* sigma2_i = new double[gi.n];
   for (size_t i=0;i<gi.n;i++) {
     // since we're working in variances, sigma_v^2 should be multiplied by z^2, but z is binary so no need
-    sigma_i[i] = sqrt(v_y/gi.w[i] + v_u + v_v*gi.z_[i] + twocov_uv*gi.z_[i]);
+    sigma2_i[i] = v_y/gi.w[i] + v_u + v_v*gi.z_[i] + twocov_uv*gi.z_[i];
   }
 
-  return(sigma_i);
+  return(sigma2_i);
 }
 
 void draw_uv(double* u, double* v, ginfo& gi){
@@ -447,7 +448,7 @@ void save_values(size_t& save_ctr, int n, int ntrt,
     b_post(save_ctr, k) = (bscale1-bscale0)*allfit_mod[k]/bscale;
     u_post(save_ctr, k) = gi.u[k];
     v_post(save_ctr, k) = gi.v[k];
-    sigma_i_post(save_ctr,k) = gi.sigma_i[k];
+    sigma_i_post(save_ctr,k) = sqrt(gi.sigma2_i[k]);
   }
 
   save_ctr += 1;
