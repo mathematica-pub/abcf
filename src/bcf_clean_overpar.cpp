@@ -457,8 +457,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       update_sigma_v(ginfo, allfit);
       update_rho(ginfo, allfit);
 
-      draw_uv(u, v, ginfo);
-      // also include u/v in the fit?
+      draw_uv(u, v, allfit, ginfo);
 
       if ((iIter+1) % batch_size == 0) {
         update_adaptive_ls(ginfo, iIter, batch_size, acceptance_target);
@@ -485,6 +484,17 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     log_fit(y, allfit, allfit_con, allfit_mod, ginfo.sigma2_i, logger, verbose_itr);
 
   } // end MCMC Loop
+
+  // Print acceptance
+  if (randeff && verbose>0) {
+    logger.setLevel(1);
+    sprintf(logBuff,"Acceptance: sigma_y: %f, sigma_u: %f, sigma_v: %f, rho: %f.", 
+            ginfo.ac_sigma_y / nd*thin+burn,
+            ginfo.ac_sigma_u / nd*thin+burn,
+            ginfo.ac_sigma_v / nd*thin+burn,
+            ginfo.ac_rho / nd*thin+burn);
+    logger.log(logBuff);
+  }
 
   int time2 = time(&tp);
   Rcout << "\n============================================================\n MCMC Complete \n============================================================\n";

@@ -101,6 +101,7 @@ double rtnormlo1(double mean, double lo);
 double rtnormhi1(double mean, double lo);
 double rtnormlo(double mean, double sd, double lo);
 
+arma::rowvec mvnorm(arma::rowvec mu, arma::mat Sigma, RNG& gen);
 
 //sample from N(Phi^(-1)m, Phi^(-1))
 arma::vec rmvnorm_post(arma::vec &m, arma::mat &Phi);

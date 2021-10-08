@@ -36,6 +36,14 @@
     return -rtnormlo1(-mean, -lo);
   }
 
+arma::rowvec mvnorm(arma::rowvec mu, arma::mat Sigma, RNG& gen) {
+  arma::rowvec rands(2);
+  rands(0) = gen.normal();
+  rands(1) = gen.normal();
+
+  return(mu + (rands * arma::chol(Sigma)));
+}
+
 arma::vec rmvnorm_post(arma::vec &m, arma::mat &Phi) {
   arma::mat R = arma::chol(Phi);
   arma::vec mu = arma::solve(arma::trimatu(R), arma::solve(arma::trimatl(R.t()), m));

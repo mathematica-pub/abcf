@@ -95,7 +95,7 @@ double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, do
 
 double* calculate_sigma2_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_v, double rho);
 
-void draw_uv(double* u, double* v, ginfo& gi);
+void draw_uv(double* u, double* v, double* allfit, ginfo& gi);
 
 void update_adaptive_ls(ginfo& gi, size_t iter, int batch_size, double ac_target=0.44);
 

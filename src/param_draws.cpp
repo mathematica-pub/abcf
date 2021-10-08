@@ -394,10 +394,34 @@ double* calculate_sigma2_i(ginfo& gi, double sigma_y, double sigma_u, double sig
   return(sigma2_i);
 }
 
-void draw_uv(double* u, double* v, ginfo& gi){
+void draw_uv(double* u, double* v, double* allfit, ginfo& gi) {
+  arma::mat Sigma(2,2);
+  Sigma(0,0) = gi.sigma_u*gi.sigma_u;
+  Sigma(0,1) = gi.rho*gi.sigma_u*gi.sigma_v;
+  Sigma(1,0) = gi.rho*gi.sigma_u*gi.sigma_v;
+  Sigma(1,1) = gi.sigma_v*gi.sigma_v;
+
+  arma::mat invSigma(2,2);
+  invSigma = arma::inv(Sigma);
+
   for(size_t i=0;i<gi.n;i++) {
-    u[i] = 0;
-    v[i] = 0;
+    double r = gi.y[i] - allfit[i];
+
+    arma::vec gamma(2);
+    gamma(0) = 1;
+    gamma(1) = gi.z_[i];
+
+    arma::mat data_prec(2,2);
+    data_prec = gi.w[i] / (gi.sigma_y*gi.sigma_y) * (gamma * arma::trans(gamma));
+    arma::mat Sigma_star(2,2);
+    Sigma_star = arma::inv(invSigma + data_prec);
+    
+    arma::rowvec mu_star(2);
+    mu_star = arma::trans(Sigma_star * (gamma * (gi.w[i] *r / (gi.sigma_y*gi.sigma_y))));
+
+    arma::rowvec draw = mvnorm(mu_star, Sigma_star, gi.gen);
+    u[i] = draw(0);
+    v[i] = draw(1);
   }
 }
 
