@@ -648,7 +648,7 @@ void getsuffDeath(tree& x, tree::tree_cp nl, tree::tree_cp nr, xinfo& xi, dinfo&
 
 //--------------------------------------------------
 //log of the integrated likelihood
-double lil(double n, double sy, double sigma, double tau)
+double lil(double n, double sy, double tau)
 {
   double d = 1/(tau*tau) + n;// n is \sum phi_i for het
   

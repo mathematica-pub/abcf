@@ -212,7 +212,6 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   pi_mod.alpha = mod_alpha; //prior prob a bot node splits is alpha/(1+d)^beta, d is depth of node
   pi_mod.beta  = mod_beta;  //2 for bart means it is harder to build big trees.
   pi_mod.tau   = mod_sd/(sqrt(delta_mod)*sqrt((double) ntree_mod)); //sigma_mu, variance on leaf parameters
-  pi_mod.sigma = shat; //resid variance is \sigma^2_y/bscale^2 in the backfitting update
 
   pinfo pi_con;
   pi_con.pbd = 1.0; //prob of birth/death move
@@ -221,8 +220,6 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   pi_con.alpha = con_alpha;
   pi_con.beta  = con_beta;
   pi_con.tau   = con_sd/(sqrt(delta_con)*sqrt((double) ntree_con)); //sigma_mu, variance on leaf parameters
-
-  pi_con.sigma = shat/fabs(mscale); //resid variance in backfitting is \sigma^2_y/mscale^2
 
   // Always start sigma_y at sample SD
   double sigma_y = shat;

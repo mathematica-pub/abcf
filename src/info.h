@@ -17,7 +17,7 @@ public:
 class pinfo
 {
 public:
-   pinfo() {pbd=1.0;pb=.5;alpha=.95;beta=.5;tau=1.0;sigma=1.0;minperbot=5;taccept=0;tavgd=0;tmaxd=0;}
+   pinfo() {pbd=1.0;pb=.5;alpha=.95;beta=.5;tau=1.0;minperbot=5;taccept=0;tavgd=0;tmaxd=0;}
 //mcmc info
    double pbd; //prob of birth/death
    double pb;  //prob of birth
@@ -25,8 +25,6 @@ public:
    double alpha;
    double beta;
    double tau;
-//sigma
-   double sigma;
 //tree min obs
   size_t minperbot;
 //mcmc stuffs

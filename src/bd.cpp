@@ -106,9 +106,9 @@ bool bd(tree& x, xinfo& xi, dinfo& di, double* phi, pinfo& pi, RNG& gen, Logger 
       double alpha=0.0,alpha1=0.0,alpha2=0.0;
       double lill=0.0,lilr=0.0,lilt=0.0;
       if((sl.n0>4) && (sr.n0>4)) { //do we actually want this? yep
-         lill = lil(sl.n,sl.sy,pi.sigma,pi.tau);
-         lilr = lil(sr.n,sr.sy,pi.sigma,pi.tau);
-         lilt = lil(sl.n+sr.n,sl.sy+sr.sy,pi.sigma,pi.tau);
+         lill = lil(sl.n,sl.sy,pi.tau);
+         lilr = lil(sr.n,sr.sy,pi.tau);
+         lilt = lil(sl.n+sr.n,sl.sy+sr.sy,pi.tau);
    
          alpha1 = (PGnx*(1.0-PGly)*(1.0-PGry)*PDy*Pnogy)/((1.0-PGnx)*PBx*Pbotx); //alpha1 = prior*proposal prob
          alpha2 = alpha1*exp(lill+lilr-lilt); //alpha2 = (prior*proposal prob) * (likelihood)
@@ -123,24 +123,13 @@ bool bd(tree& x, xinfo& xi, dinfo& di, double* phi, pinfo& pi, RNG& gen, Logger 
       double a,b,s2,yb;
       double mul,mur; //means for new bottom nodes, left and right
       
-      //all wrong but whatever, they get resampled immediately
       if(gen.uniform() < alpha) { //if accept birth
          logger.log("Accepting Birth");
-         //draw mul, mean for left node
-         a= 1.0/(pi.tau*pi.tau); //a = 1/tau^2
-         s2 = pi.sigma*pi.sigma; // sigma^2
-         //left mean
-         yb = sl.sy/sl.n;
-         b = sl.n/s2; // b=n/sigma^2
-         mul = b*yb/(a+b) + gen.normal()/sqrt(a+b);
-         //draw mul, mean for left node
-         yb = sr.sy/sr.n;
-         b = sr.n/s2; // b=n/sigma^2
-         mur = b*yb/(a+b) + gen.normal()/sqrt(a+b);
-         //do birth
-         //cout << "birth, mul=" << mul << " mur=" << mur << endl;
-         //x.birthp(nx,v,c,mul,mur);
-			x.birth(nx->nid(),v,c,mul,mur);
+         // Use RNG to preserve seed
+         double dumb1 = gen.normal();
+         double dumb2 = gen.normal();
+         // initialize nodes with mu=0 - drmu() will immediately replace
+			x.birth(nx->nid(),v,c,0.,0.);
          return true;
       } else {
          logger.log("Rejecting Birth");
@@ -194,9 +183,9 @@ bool bd(tree& x, xinfo& xi, dinfo& di, double* phi, pinfo& pi, RNG& gen, Logger 
       //--------------------------------------------------
       //compute alpha
 
-      double lill = lil(sl.n,sl.sy,pi.sigma,pi.tau);
-      double lilr = lil(sr.n,sr.sy,pi.sigma,pi.tau);
-      double lilt = lil(sl.n+sr.n,sl.sy+sr.sy,pi.sigma,pi.tau);
+      double lill = lil(sl.n,sl.sy,pi.tau);
+      double lilr = lil(sr.n,sr.sy,pi.tau);
+      double lilt = lil(sl.n+sr.n,sl.sy+sr.sy,pi.tau);
 
       double alpha1 = ((1.0-PGny)*PBy*Pboty)/(PGny*(1.0-PGlx)*(1.0-PGrx)*PDx*Pnogx);
       double alpha2 = alpha1*exp(lilt - lill - lilr);
@@ -209,20 +198,12 @@ bool bd(tree& x, xinfo& xi, dinfo& di, double* phi, pinfo& pi, RNG& gen, Logger 
       double mu;
       double n;
       
-      //all wrong, but updated immediately so whatever //@peter @charlie I wonder what this means
       if(gen.uniform()<alpha) { // if acccept death
          logger.log("Acccepting Death");
-         //draw mu for nog (which will be bot)
-         n = sl.n + sr.n;
-         a= 1.0/(pi.tau*pi.tau); //a = 1/tau^2
-         s2 = pi.sigma*pi.sigma; // sigma^2
-         yb = (sl.sy+sr.sy)/n;
-         b = n/s2; // b=n/sigma^2
-         mu = b*yb/(a+b) + gen.normal()/sqrt(a+b);
-         //do death
-         //cout << "death, mu=" << mu << endl;
-         //x.deathp(nx,mu);
-			x.death(nx->nid(),mu);
+         // Use RNG to preserve seed
+         double dumb = gen.normal();
+         // initialize with mu=0 - drmu() will immediately replace
+			x.death(nx->nid(),0.);
          return true;
       } else { // if reject death
          logger.log("Rejecting Death");

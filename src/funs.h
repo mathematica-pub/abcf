@@ -101,7 +101,7 @@ void getsuffDeath(tree& x, tree::tree_cp nl, tree::tree_cp nr, xinfo& xi, dinfo&
 
 //--------------------------------------------------
 //log of the integreted likelihood
-double lil(double n, double sy, double sigma, double tau);
+double lil(double n, double sy, double tau);
 //sy isn't needed, but convenient to maintain fcn sig
 //--------------------------------------------------
 //fit

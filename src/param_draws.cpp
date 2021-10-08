@@ -260,8 +260,6 @@ void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda
   }
 
   sigma = sqrt((nu*lambda + rss)/gi.gen.chi_square(nu+gi.n));
-  pi_con.sigma = sigma/fabs(mscale);
-  pi_mod.sigma = sigma;
 }
 
 void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda) {
