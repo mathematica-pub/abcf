@@ -556,6 +556,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   return(fitObj)
 }
 
+#' Summarize method for bcf() fitted object
+#'
 #' Takes a fitted bcf object produced by bcf() and produces summary stats and MCMC diagnostics.
 #' This function is built using the coda package and meant to mimic output from rstan::print.stanfit().
 #' It includes, for key parameters, posterior summary stats, effective sample sizes,

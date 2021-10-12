@@ -2,15 +2,7 @@
 % Please edit documentation in R/bcf.R
 \name{summary.bcf}
 \alias{summary.bcf}
-\title{Takes a fitted bcf object produced by bcf() and produces summary stats and MCMC diagnostics.
-This function is built using the coda package and meant to mimic output from rstan::print.stanfit().
-It includes, for key parameters, posterior summary stats, effective sample sizes,
-and Gelman and Rubin's convergence diagnostics.
-By default, those parameters are: sigma (the error standard deviation when the weights
-are all equal), tau_bar (the estimated sample average treatment effect), mu_bar
-(the average outcome under control/z=0 across all observations in the sample), and
-yhat_bat (the average outcome under the realized treatment assignment across all
-observations in the sample).}
+\title{Summarize method for bcf() fitted object}
 \usage{
 \method{summary}{bcf}(object, ..., params_2_summarise = NULL)
 }
@@ -22,6 +14,17 @@ observations in the sample).}
 \item{params_2_summarise}{parameters to summarise.}
 }
 \description{
+Takes a fitted bcf object produced by bcf() and produces summary stats and MCMC diagnostics.
+This function is built using the coda package and meant to mimic output from rstan::print.stanfit().
+It includes, for key parameters, posterior summary stats, effective sample sizes,
+and Gelman and Rubin's convergence diagnostics.
+By default, those parameters are: sigma (the error standard deviation when the weights
+are all equal), tau_bar (the estimated sample average treatment effect), mu_bar
+(the average outcome under control/z=0 across all observations in the sample), and
+yhat_bat (the average outcome under the realized treatment assignment across all
+observations in the sample).
+}
+\details{
 We strongly suggest updating the coda package to our
 Github version, which uses the Stan effective size computation.
 We found the native coda effective size computation to be overly optimistic in some situations
