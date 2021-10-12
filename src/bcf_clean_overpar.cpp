@@ -489,10 +489,10 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   if (randeff && verbose>0) {
     logger.setLevel(1);
     sprintf(logBuff,"Acceptance: sigma_y: %f, sigma_u: %f, sigma_v: %f, rho: %f.", 
-            ginfo.ac_sigma_y / nd*thin+burn,
-            ginfo.ac_sigma_u / nd*thin+burn,
-            ginfo.ac_sigma_v / nd*thin+burn,
-            ginfo.ac_rho / nd*thin+burn);
+            float(ginfo.ac_sigma_y) / (nd*thin+burn),
+            float(ginfo.ac_sigma_u) / (nd*thin+burn),
+            float(ginfo.ac_sigma_v) / (nd*thin+burn),
+            float(ginfo.ac_rho) / (nd*thin+burn));
     logger.log(logBuff);
   }
 
