@@ -42,7 +42,8 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   bool RJ= false, bool use_mscale=true, bool use_bscale=true, 
                   bool b_half_normal=true, bool randeff=false,
                   int batch_size = 100, double acceptance_target=0.44,
-                  double trt_init = 1.0, int verbose=1)
+                  double trt_init = 1.0, int verbose=1,
+                  bool hardcode_sigma_u=false, bool hardcode_sigma_v=false, bool hardcode_rho=false)
 {
 
   std::ofstream treef_con;
@@ -229,6 +230,16 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   // For others draw from prior if we're doing random effects
   if (randeff) {
     initialize_sigmas(sigma_y, sigma_u, sigma_v, rho, gen);
+    // sigmas can't be hardcoded to 0 or u/v's Sigma isn't invertible
+    if(hardcode_sigma_u) {
+      sigma_u = 0.00000001;
+    }
+    if(hardcode_sigma_v) {
+      sigma_v = 0.00000001;
+    }
+    if(hardcode_rho) {
+      rho = 0;
+    }
   }
 
   //--------------------------------------------------
@@ -454,9 +465,15 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     if (randeff) {
       // each of these updates will also update sigma2_i when they run
       update_sigma_y(ginfo, allfit, nu, lambda);
-      update_sigma_u(ginfo, allfit);
-      update_sigma_v(ginfo, allfit);
-      update_rho(ginfo, allfit);
+      if (!hardcode_sigma_u) {
+        update_sigma_u(ginfo, allfit);
+      }
+      if (!hardcode_sigma_v) {
+        update_sigma_v(ginfo, allfit);
+      }
+      if (!hardcode_rho) {
+        update_rho(ginfo, allfit);
+      }
 
       draw_uv(u, v, allfit, ginfo);
 

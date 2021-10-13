@@ -39,6 +39,9 @@ bcf(
   use_tauscale = TRUE,
   include_random_effects = FALSE,
   batch_size = 100,
+  hardcode_sigma_u = FALSE,
+  hardcode_sigma_v = FALSE,
+  hardcode_rho = FALSE,
   verbose = 1
 )
 }
