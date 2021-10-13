@@ -111,8 +111,9 @@ void update_trees(std::string context,
 
 void calculate_rwww(int start, int stop, double* sigma2_i, double scale, double* allfit_spec, double* allfit_alt, std::vector<double>& y, double& ww, double& rw) {
     double scale2 = scale*scale;
+    double scale_factor, r;
     for(size_t k=start; k<stop; ++k) {
-        double scale_factor = (allfit_spec[k]*allfit_spec[k])/(sigma2_i[k]*scale2);
+        scale_factor = (allfit_spec[k]*allfit_spec[k])/(sigma2_i[k]*scale2);
         
         if(scale_factor!=scale_factor) {
           Rcpp::Rcout << " scale_factor " << scale_factor << endl;
@@ -120,7 +121,7 @@ void calculate_rwww(int start, int stop, double* sigma2_i, double scale, double*
         }
 
         // numerator is what's unexplained by the other factor
-        double r = (y[k] - allfit_alt[k])*scale/allfit_spec[k];
+        r = (y[k] - allfit_alt[k])*scale/allfit_spec[k];
         
         if(r!=r) {
           Rcpp::Rcout << " individual " << k << " r " << r << endl;
@@ -157,8 +158,9 @@ void draw_delta(std::vector<tree>& t, pinfo& pi, double& delta, RNG& gen) {
     bnv.clear();
     t[iTree].getbots(bnv);
     bvsz nb = bnv.size();
+    double mm;
     for(bvsz ii = 0; ii<nb; ++ii) {
-      double mm = bnv[ii]->getm(); //node parameter
+      mm = bnv[ii]->getm(); //node parameter
       ssq += mm*mm/(pi.tau*pi.tau);
       endnode_count += 1.0;
     }
@@ -217,8 +219,9 @@ void update_bscale(double& bscale0, double& bscale1,
     gi.logger.log("Drawing bscale0");
     draw_scale(bscale0, wi.scale_prec, ww0, rw0, gi.gen, gi.logger, verbose);
 
+    double scale_ratio;
     for(size_t k=0; k<gi.n; ++k) {
-        double scale_ratio = (k<gi.ntrt) ? bscale1/bscale1_old : bscale0/bscale0_old;
+        scale_ratio = (k<gi.ntrt) ? bscale1/bscale1_old : bscale0/bscale0_old;
         allfit_mod[k] = allfit_mod[k]*scale_ratio;
     }
 
@@ -359,11 +362,12 @@ double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, do
   double sum_log_sig2_i_proposed    = 0;
   double sum_r_over_sig2_i_proposed = 0;
 
+  double r, r2, sigma2_current, sigma2_proposed;
   for (size_t i=0;i<gi.n;i++) {
-    double r = gi.y[i] - allfit[i];
-    double r2 = r*r;
-    double sigma2_current  = sigma2_i_current[i];
-    double sigma2_proposed = sigma2_i_proposed[i];
+    r = gi.y[i] - allfit[i];
+    r2 = r*r;
+    sigma2_current  = sigma2_i_current[i];
+    sigma2_proposed = sigma2_i_proposed[i];
     
     sum_log_sig2_i_current  += log(sigma2_current);
     sum_log_sig2_i_proposed += log(sigma2_proposed);
@@ -404,22 +408,25 @@ void draw_uv(double* u, double* v, double* allfit, ginfo& gi) {
   arma::mat invSigma(2,2);
   invSigma = arma::inv(Sigma);
 
-  for(size_t i=0;i<gi.n;i++) {
-    double r = gi.y[i] - allfit[i];
+  double r;
+  arma::vec gamma(2);
+  arma::mat data_prec(2,2);
+  arma::mat Sigma_star(2,2);
+  arma::rowvec mu_star(2);
+  arma::rowvec draw;
 
-    arma::vec gamma(2);
+  for(size_t i=0;i<gi.n;i++) {
+    r = gi.y[i] - allfit[i];
+
     gamma(0) = 1;
     gamma(1) = gi.z_[i];
 
-    arma::mat data_prec(2,2);
     data_prec = gi.w[i] / (gi.sigma_y*gi.sigma_y) * (gamma * arma::trans(gamma));
-    arma::mat Sigma_star(2,2);
     Sigma_star = arma::inv(invSigma + data_prec);
     
-    arma::rowvec mu_star(2);
     mu_star = arma::trans(Sigma_star * (gamma * (gi.w[i] *r / (gi.sigma_y*gi.sigma_y))));
 
-    arma::rowvec draw = mvnorm(mu_star, Sigma_star, gi.gen);
+    draw = mvnorm(mu_star, Sigma_star, gi.gen);
     u[i] = draw(0);
     v[i] = draw(1);
   }
@@ -465,10 +472,11 @@ void save_values(size_t& save_ctr, int n, int ntrt,
   sigma_v_post(save_ctr) = gi.sigma_v;
   rho_post(save_ctr) = gi.rho;
 
+  double bscale;
   for(size_t k=0;k<n;k++) {
     m_post(save_ctr, k) = allfit_con[k];
     yhat_post(save_ctr, k) = allfit[k];
-    double bscale = (k<ntrt) ? bscale1 : bscale0;
+    bscale = (k<ntrt) ? bscale1 : bscale0;
     b_post(save_ctr, k) = (bscale1-bscale0)*allfit_mod[k]/bscale;
     u_post(save_ctr, k) = gi.u[k];
     v_post(save_ctr, k) = gi.v[k];
