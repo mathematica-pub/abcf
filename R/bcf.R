@@ -386,6 +386,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
 
     yhat_post = muy + sdy*fitbcf$yhat_post[,order(perm)]
 
+    names(fitbcf$acceptance) = c('sigma_y','sigma_u','sigma_v','rho')
+
     list(sigma_y    = sdy*fitbcf$sigma_y,
          sigma_u    = sdy*fitbcf$sigma_u,
          sigma_v    = sdy*fitbcf$sigma_v,
@@ -404,6 +406,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
          tau_scale  = fitbcf$bsd,
          b0         = fitbcf$b0,
          b1         = fitbcf$b1,
+         acceptance = fitbcf$acceptance,
          perm       = perm,
          include_pi = include_pi,
          include_random_effects = include_random_effects,
@@ -432,7 +435,6 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   chain_list=list()
 
   n_iter = length(chain_out[[1]]$sigma)
-
 
   for (iChain in 1:n_chains){
     sigma_y      <- chain_out[[iChain]]$sigma_y
@@ -508,6 +510,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
     if(chain_out[[iChain]]$include_random_effects != chain_out[[1]]$include_random_effects) stop("include_random_effects not consistent between chains for no reason")
     if(any(chain_out[[iChain]]$perm   != chain_out[[1]]$perm))      stop("perm not consistent between chains for no reason")
   }
+  acceptance = do.call(rbind,lapply(chain_out,`[[`,'acceptance'))
+  row.names(acceptance) = paste0('chain',1:n_chains)
 
   fitObj <- list(sigma_y    = all_sigma_y,
                  sigma_u    = all_sigma_u,
@@ -525,6 +529,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                  tau_scale  = all_tau_scale,
                  b0         = all_b0,
                  b1         = all_b1,
+                 acceptance = acceptance,
                  perm       = perm,
                  include_pi = chain_out[[1]]$include_pi,
                  include_random_effects = chain_out[[1]]$include_random_effects,
@@ -537,7 +542,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
     fitObj$sigma_u <- fitObj$sigma_v <- fitObj$rho <- fitObj$sigma_i <- fitObj$u <- fitObj$v <- NULL
     names(fitObj)[names(fitObj)=='sigma_y'] <- 'sigma'
     fitObj$raw_chains <- lapply(fitObj$raw_chains, function(x) {
-      x$sigma_u <- x$sigma_v <- x$rho <- x$sigma_i <- x$u <- x$v <- NULL
+      x$sigma_u <- x$sigma_v <- x$rho <- x$sigma_i <- x$u <- x$v <- x$acceptance <- NULL
       names(x)[names(x)=='sigma_y'] <- 'sigma'
       return(x)
     })
@@ -547,6 +552,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
       fitObj$coda_chains[[iChain]] <- fitObj$coda_chains[[iChain]][,keep]
       colnames(fitObj$coda_chains[[iChain]])[colnames(fitObj$coda_chains[[iChain]])=='sigma_y'] <- 'sigma'
     }
+
+    fitObj$acceptance <- NULL
   }
 
   attr(fitObj, "class") <- "bcf"

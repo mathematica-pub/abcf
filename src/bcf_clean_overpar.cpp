@@ -286,6 +286,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   NumericMatrix b_post(nd,n);
   NumericMatrix u_post(nd,n);
   NumericMatrix v_post(nd,n);
+  NumericVector acc_post(4);
 
   //  NumericMatrix spred2(nd,dip.n);
 
@@ -513,10 +514,16 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     treef_con.close();
     treef_mod.close();
   }
+
+  acc_post(0) = float(ginfo.ac_sigma_y) / (nd*thin+burn);
+  acc_post(1) = float(ginfo.ac_sigma_u) / (nd*thin+burn);
+  acc_post(2) = float(ginfo.ac_sigma_v) / (nd*thin+burn);
+  acc_post(3) = float(ginfo.ac_rho)     / (nd*thin+burn);
   
   return(List::create(_["yhat_post"] = yhat_post, _["m_post"] = m_post, _["b_post"] = b_post,
                       _["sigma_y"] = sigma_y_post, _["sigma_u"] = sigma_u_post, _["sigma_v"] = sigma_v_post,
                       _["rho"] = rho_post, _["sigma_i"] = sigma_i_post, _["u"] = u_post, _["v"] = v_post,
-                      _["msd"] = msd_post, _["bsd"] = bsd_post, _["b0"] = b0_post, _["b1"] = b1_post
+                      _["msd"] = msd_post, _["bsd"] = bsd_post, _["b0"] = b0_post, _["b1"] = b1_post,
+                      _["acceptance"] = acc_post
   ));
 }
