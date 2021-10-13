@@ -235,8 +235,8 @@ void update_bscale(double& bscale0, double& bscale1,
 
 void initialize_sigmas(double& sigma_y, double& sigma_u, double& sigma_v, double& rho, RNG& gen) {
   // sigma_y is not changed
-  sigma_u = abs(gen.normal(0., 1.));
-  sigma_v = abs(gen.normal(0., 1.));
+  sigma_u = fabs(gen.normal(0., 1.));
+  sigma_v = fabs(gen.normal(0., 1.));
   rho = rc_invcdf(gen.uniform(), 0., 1.);
 }
 
