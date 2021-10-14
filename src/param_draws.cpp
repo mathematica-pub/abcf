@@ -20,7 +20,6 @@ void update_trees(std::string context,
                   double mscale, double bscale0, double bscale1,
                   ginfo& gi, winfo& wi, bool verbose) {
     char logBuff[100];
-    double* ftemp  = new double[gi.n];
 
     for(size_t iTree=0;iTree<wi.ntree;iTree++) {
 
@@ -35,19 +34,19 @@ void update_trees(std::string context,
       fit(wi.t[iTree], // tree& t
           wi.xi, // xinfo& xi
           wi.di, // dinfo& di
-          ftemp);
+          gi.ftemp);
       
       log_trees("post first call to fit", wi.t[iTree], wi.xi, verbose, gi.logger);
 
       for(size_t k=0;k<gi.n;k++) {
-        if(ftemp[k] != ftemp[k]) {
+        if(gi.ftemp[k] != gi.ftemp[k]) {
           Rcpp::Rcout << context << " tree " << iTree <<" obs "<< k <<" "<< std::endl;
           Rcpp::Rcout << wi.t[iTree] << std::endl;
           Rcpp::stop("nan in ftemp");
         }
 
-        allfit[k]      = allfit[k]      -wi.scale_idx[k]*ftemp[k];
-        allfit_spec[k] = allfit_spec[k] -wi.scale_idx[k]*ftemp[k];
+        allfit[k]      = allfit[k]      -wi.scale_idx[k]*gi.ftemp[k];
+        allfit_spec[k] = allfit_spec[k] -wi.scale_idx[k]*gi.ftemp[k];
         
         wi.ri[k] = (gi.y[k]-allfit[k])/wi.scale_idx[k];
 
@@ -96,11 +95,11 @@ void update_trees(std::string context,
       fit(wi.t[iTree],
           wi.xi,
           wi.di,
-          ftemp);
+          gi.ftemp);
 
       for(size_t k=0;k<gi.n;k++) {
-        allfit[k] += wi.scale_idx[k]*ftemp[k];
-        allfit_spec[k] += wi.scale_idx[k]*ftemp[k];
+        allfit[k] += wi.scale_idx[k]*gi.ftemp[k];
+        allfit_spec[k] += wi.scale_idx[k]*gi.ftemp[k];
       }
 
       log_trees("post second call to fit", wi.t[iTree], wi.xi, verbose, gi.logger);

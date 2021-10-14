@@ -32,6 +32,7 @@ struct ginfo {
    int ac_sigma_v;
    int ac_rho;
    // Helper bits
+   double* ftemp;
    RNG& gen;
    Logger& logger;
 };

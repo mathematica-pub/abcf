@@ -367,6 +367,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                  .ac_sigma_u = 0,             // Number of accepted proposals for sigma_u
                  .ac_sigma_v = 0,             // Number of accepted proposals for sigma_v
                  .ac_rho     = 0,             // Number of accepted proposals for rho
+                 .ftemp      = ftemp,
                  .gen        = gen,
                  .logger     = logger};
 
