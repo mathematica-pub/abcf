@@ -331,6 +331,8 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   size_t save_ctr = 0;
   bool verbose_itr; 
 
+  double* sigma2_i    = new double[n];
+  double* prop_sig2   = new double[n];
   double* weight      = new double[n];
   double* weight_het  = new double[n];
 
@@ -354,7 +356,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                  .w          = w,
                  .u          = u,
                  .v          = v,
-                 .sigma2_i    = new double[n],
+                 .sigma2_i   = sigma2_i,      // actual values of sigma^2 i to use in calculations
                  .sigma_y    = sigma_y,
                  .sigma_u    = sigma_u,
                  .sigma_v    = sigma_v,
@@ -367,12 +369,13 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                  .ac_sigma_u = 0,             // Number of accepted proposals for sigma_u
                  .ac_sigma_v = 0,             // Number of accepted proposals for sigma_v
                  .ac_rho     = 0,             // Number of accepted proposals for rho
-                 .ftemp      = ftemp,
+                 .ftemp      = ftemp,         // placeholder for fit
+                 .prop_sig2  = prop_sig2,     // placeholder for sigma^2 i proposals
                  .gen        = gen,
                  .logger     = logger};
 
   // Now that we have ginfo, fill out sigma2_i
-  ginfo.sigma2_i = calculate_sigma2_i(ginfo, sigma_y, sigma_u, sigma_v, rho);
+  calculate_sigma2_i(ginfo, sigma_y, sigma_u, sigma_v, rho, ginfo.sigma2_i);
 
   winfo wi_con = {.ntree      = ntree_con,
                   .t          = t_con,
@@ -483,7 +486,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       }
     } else {
       update_sigma_y_conj(allfit, sigma_y, nu, lambda, mscale, pi_con, pi_mod, ginfo);
-      ginfo.sigma2_i = calculate_sigma2_i(ginfo, sigma_y, sigma_u, sigma_v, rho);
+      calculate_sigma2_i(ginfo, sigma_y, sigma_u, sigma_v, rho, ginfo.sigma2_i);
     }
 
     if( ((iIter>=burn) & (iIter % thin==0)) )  {
@@ -521,12 +524,19 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   Rcout << "time for loop: " << time2 - time1 << endl;
 
   t_mod.clear(); t_con.clear();
-  delete[] allfit;
-  delete[] allfit_mod;
+  delete[] w;
   delete[] allfit_con;
-  delete[] r_mod;
   delete[] r_con;
+  delete[] allfit_mod;
+  delete[] r_mod;
+  delete[] allfit;
   delete[] ftemp;
+  delete[] u;
+  delete[] v;
+  delete[] sigma2_i;
+  delete[] prop_sig2;
+  delete[] weight;
+  delete[] weight_het;
   
   if(not treef_con_name.empty()){
     treef_con.close();

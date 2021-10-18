@@ -33,6 +33,7 @@ struct ginfo {
    int ac_rho;
    // Helper bits
    double* ftemp;
+   double* prop_sig2;
    RNG& gen;
    Logger& logger;
 };
@@ -92,9 +93,9 @@ void update_sigma_v(ginfo& gi, double* allfit);
 
 void update_rho(ginfo& gi, double* allfit);
 
-double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed, double* sigma2_i_current, double* sigma2_i_proposed);
+double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed);
 
-double* calculate_sigma2_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_v, double rho);
+void calculate_sigma2_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_v, double rho, double* return_loc);
 
 void draw_uv(double* u, double* v, double* allfit, ginfo& gi);
 
