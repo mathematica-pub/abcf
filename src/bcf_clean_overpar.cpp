@@ -42,7 +42,8 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   bool RJ= false, bool use_mscale=true, bool use_bscale=true, 
                   bool b_half_normal=true, bool randeff=false,
                   int batch_size = 100, double acceptance_target=0.44,
-                  double trt_init = 1.0, int verbose=1,
+                  double trt_init = 1.0, int verbose=1, 
+                  bool block_v_rho=false, int block_batch_size = 100,
                   bool hardcode_sigma_u=false, bool hardcode_sigma_v=false, bool hardcode_rho=false)
 {
 
@@ -335,6 +336,14 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   double* prop_sig2   = new double[n];
   double* weight      = new double[n];
   double* weight_het  = new double[n];
+  
+  arma::vec xform_sigma_v(nd*thin+burn) ;
+  arma::vec xform_rho(nd*thin+burn) ;
+  arma::mat cov_sigma_v_rho(2,2);
+  cov_sigma_v_rho(0,0) = 1;
+  cov_sigma_v_rho(0,1) = 0;
+  cov_sigma_v_rho(1,0) = 0;
+  cov_sigma_v_rho(1,1) = 1;
 
   logger.setLevel(0);
 
@@ -369,6 +378,9 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                  .ac_sigma_u = 0,             // Number of accepted proposals for sigma_u
                  .ac_sigma_v = 0,             // Number of accepted proposals for sigma_v
                  .ac_rho     = 0,             // Number of accepted proposals for rho
+                 .xform_sigma_v   = xform_sigma_v,
+                 .xform_rho       = xform_rho,
+                 .cov_sigma_v_rho = cov_sigma_v_rho,
                  .ftemp      = ftemp,         // placeholder for fit
                  .prop_sig2  = prop_sig2,     // placeholder for sigma^2 i proposals
                  .gen        = gen,
@@ -472,11 +484,27 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       if (!hardcode_sigma_u) {
         update_sigma_u(ginfo, allfit);
       }
-      if (!hardcode_sigma_v) {
+      if (!block_v_rho && !hardcode_sigma_v) {
         update_sigma_v(ginfo, allfit);
       }
-      if (!hardcode_rho) {
+      if (!block_v_rho && !hardcode_rho) {
         update_rho(ginfo, allfit);
+      }
+      if (block_v_rho) {
+        update_sigma_v_rho(ginfo, allfit);
+        // Update the tracker with transformations
+        ginfo.xform_sigma_v[iIter] = log(ginfo.sigma_v);
+        ginfo.xform_rho[iIter] = log(ginfo.rho + 1) - log(1 - ginfo.rho);
+
+        // Once we're exiting burn-in, and every block_batch_size iterations thereafter, recalculate the covariance matrix
+        if (iIter>=(burn-1) && (iIter - burn + 1) % block_batch_size==0) {
+          // arma::cov(vec,vec) returns a 1x1 mat and refuses to convert to double for some reason
+          arma::mat covar = arma::cov(ginfo.xform_sigma_v.head(iIter+1), ginfo.xform_rho.head(iIter+1));
+          ginfo.cov_sigma_v_rho(0,0) = arma::var(ginfo.xform_sigma_v.head(iIter+1));
+          ginfo.cov_sigma_v_rho(0,1) = covar[0,0];
+          ginfo.cov_sigma_v_rho(1,0) = covar[0,0];
+          ginfo.cov_sigma_v_rho(1,1) = arma::var(ginfo.xform_rho.head(iIter+1));
+        }
       }
 
       draw_uv(u, v, allfit, ginfo);

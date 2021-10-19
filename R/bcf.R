@@ -243,6 +243,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 nu = 3, lambda = NULL, sigq = .9, sighat = NULL,
                 include_pi = "control", use_muscale=TRUE, use_tauscale=TRUE,
                 include_random_effects=FALSE, batch_size = 100,
+                block_v_rho=FALSE, block_batch_size=100,
                 hardcode_sigma_u=FALSE, hardcode_sigma_v=FALSE, hardcode_rho=FALSE,
                 verbose=1
 ) {
@@ -366,6 +367,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                                  b_half_normal = TRUE, randeff = include_random_effects,
                                  batch_size=batch_size, acceptance_target=0.44,
                                  verbose=verbose,
+                                 block_v_rho=block_v_rho,
+                                 block_batch_size=block_batch_size,
                                  hardcode_sigma_u=hardcode_sigma_u,
                                  hardcode_sigma_v=hardcode_sigma_v,
                                  hardcode_rho=hardcode_rho)

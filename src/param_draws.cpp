@@ -7,8 +7,8 @@
 #include "param_draws.h"
 
 void log_trees(std::string step, tree& t, xinfo& xi, bool verbose, Logger& logger) {
-    logger.log("Attempting to print tree " + step);
     if(verbose){
+        logger.log("Attempting to print tree " + step);
         t.pr(xi);
         Rcpp::Rcout << "\n\n";
       }
@@ -248,8 +248,20 @@ double propose_sigma(double sigma_current, double ls_proposal, RNG& gen) {
 
 double propose_rho(double rho_current, double ls_proposal, RNG& gen) {
   double delta = sqrt(exp(2*ls_proposal));
-  double xformed_proposal = log((rho_current + 1) / (1 - rho_current)) + gen.normal(0., 1.) * delta;
+  double xformed_proposal = log(rho_current + 1) - log(1 - rho_current) + gen.normal(0., 1.) * delta;
   double proposal = (exp(xformed_proposal) - 1) / (exp(xformed_proposal) + 1);
+  return(proposal);
+}
+
+arma::vec propose_sigma_v_rho(double sigma_v_current, double rho_current, arma::mat cov_sigma_v_rho, RNG& gen) {
+  arma::rowvec xformed_current(2);
+  xformed_current(0) = log(sigma_v_current);
+  xformed_current(1) = log(rho_current + 1) - log(1 - rho_current); 
+  arma::rowvec draw = mvnorm(xformed_current, cov_sigma_v_rho, gen);
+  
+  arma::vec proposal(2);
+  proposal(0) = exp(draw(0));
+  proposal(1) = (exp(draw(1))-1) / (exp(draw(1))+1);
   return(proposal);
 }
 
@@ -358,6 +370,31 @@ void update_rho(ginfo& gi, double* allfit) {
     }
   } else {
     gi.logger.log("Rejecting proposed rho " + std::to_string(proposal));
+  }
+}
+
+void update_sigma_v_rho(ginfo& gi, double* allfit) {
+  arma::vec proposal = propose_sigma_v_rho(gi.sigma_v, gi.rho, gi.cov_sigma_v_rho, gi.gen);
+  calculate_sigma2_i(gi, gi.sigma_y, gi.sigma_u, proposal(0), proposal(1), gi.prop_sig2);
+
+  double log_prior_current  = log(1 + cos(M_PI*gi.rho))   - 0.5*gi.sigma_v  *gi.sigma_v;
+  double log_prior_proposed = log(1 + cos(M_PI*proposal(1))) - 0.5*proposal(0)*proposal(0);
+  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed);
+  double log_ratio = lp_diff + log(fabs(1/gi.sigma_v + 2/(gi.rho*gi.rho - 1))) - log(fabs(1/proposal(0) + 2/(proposal(1)*proposal(1) - 1)));
+
+  //Accept or reject
+  double cut = gi.gen.uniform();
+  if (log(cut) < log_ratio) {
+    gi.logger.log("Accepting proposed sigma_v & rho " + std::to_string(proposal(0)) + " " + std::to_string(proposal(1)));
+    gi.sigma_v = proposal(0);
+    gi.rho = proposal(1);
+    gi.ac_sigma_v += 1;
+    gi.ac_rho += 1;
+    for (size_t i; i<gi.n; ++i) {
+      gi.sigma2_i[i] = gi.prop_sig2[i];
+    }
+  } else {
+    gi.logger.log("Rejecting proposed sigma_v & rho " + std::to_string(proposal(0)) + " " + std::to_string(proposal(1)));
   }
 }
 
