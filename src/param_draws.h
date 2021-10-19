@@ -115,9 +115,9 @@ void save_values(size_t& save_ctr, int n, int ntrt,
                 Rcpp::NumericVector& b0_post, Rcpp::NumericVector& b1_post, Rcpp::NumericVector& sigma_y_post,
                 Rcpp::NumericVector& sigma_u_post, Rcpp::NumericVector& sigma_v_post, 
                 Rcpp::NumericVector& rho_post, Rcpp::NumericMatrix& sigma_i_post,
-                double mscale, double bscale1, double bscale0, ginfo& gi,
                 Rcpp::NumericMatrix& m_post, Rcpp::NumericMatrix& yhat_post, Rcpp::NumericMatrix& b_post,
-                Rcpp::NumericMatrix& u_post, Rcpp::NumericMatrix& v_post,
-                double* allfit, double* allfit_con, double* allfit_mod);
+                Rcpp::NumericMatrix& u_post, Rcpp::NumericMatrix& v_post, Rcpp::NumericVector& delta_con_post, 
+                double mscale, double bscale1, double bscale0, ginfo& gi,
+                double* allfit, double* allfit_con, double* allfit_mod, double delta_con);
 
 #endif

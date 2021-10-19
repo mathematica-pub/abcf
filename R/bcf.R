@@ -413,6 +413,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
          tau_scale  = fitbcf$bsd,
          b0         = fitbcf$b0,
          b1         = fitbcf$b1,
+         delta_mu   = fitbcf$delta_con,
          acceptance = fitbcf$acceptance,
          perm       = perm,
          include_pi = include_pi,
@@ -439,6 +440,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   all_u         = c()
   all_v         = c()
 
+  all_delta_mu  = c()
+
   chain_list=list()
 
   n_iter = length(chain_out[[1]]$sigma)
@@ -461,6 +464,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
     u            <- chain_out[[iChain]]$u
     v            <- chain_out[[iChain]]$v
 
+    delta_mu     <- chain_out[[iChain]]$delta_mu
+
     # -----------------------------
     # Support Old Output
     # -----------------------------
@@ -480,6 +485,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
     all_u           = rbind(all_u,         u)
     all_v           = rbind(all_v,         v)
 
+    all_delta_mu    = c(all_delta_mu,      delta_mu)
+
     # -----------------------------
     # Make the MCMC Object
     # -----------------------------
@@ -494,7 +501,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                             "mu_scale"  = mu_scale,
                             # "tau_scale" = tau_scale,
                             "b0"        = b0,
-                            "b1"        = b1)
+                            "b1"        = b1,
+                            "delta_mu"  = delta_mu)
 
     # y_df <- as.data.frame(chain$yhat)
     # colnames(y_df) <- paste0('y',1:ncol(y_df))
@@ -536,6 +544,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                  tau_scale  = all_tau_scale,
                  b0         = all_b0,
                  b1         = all_b1,
+                 delta_mu   = all_delta_mu,
                  acceptance = acceptance,
                  perm       = perm,
                  include_pi = chain_out[[1]]$include_pi,

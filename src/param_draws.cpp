@@ -499,10 +499,10 @@ void save_values(size_t& save_ctr, int n, int ntrt,
                 Rcpp::NumericVector& b0_post, Rcpp::NumericVector& b1_post, Rcpp::NumericVector& sigma_y_post,
                 Rcpp::NumericVector& sigma_u_post, Rcpp::NumericVector& sigma_v_post, 
                 Rcpp::NumericVector& rho_post, Rcpp::NumericMatrix& sigma_i_post,
-                double mscale, double bscale1, double bscale0, ginfo& gi,
                 Rcpp::NumericMatrix& m_post, Rcpp::NumericMatrix& yhat_post, Rcpp::NumericMatrix& b_post,
-                Rcpp::NumericMatrix& u_post, Rcpp::NumericMatrix& v_post,
-                double* allfit, double* allfit_con, double* allfit_mod) {
+                Rcpp::NumericMatrix& u_post, Rcpp::NumericMatrix& v_post, Rcpp::NumericVector& delta_con_post, 
+                double mscale, double bscale1, double bscale0, ginfo& gi,
+                double* allfit, double* allfit_con, double* allfit_mod, double delta_con) {
 
   msd_post(save_ctr) = mscale;
   bsd_post(save_ctr) = bscale1-bscale0;
@@ -512,6 +512,7 @@ void save_values(size_t& save_ctr, int n, int ntrt,
   sigma_u_post(save_ctr) = gi.sigma_u;
   sigma_v_post(save_ctr) = gi.sigma_v;
   rho_post(save_ctr) = gi.rho;
+  delta_con_post(save_ctr) = delta_con;
 
   double bscale;
   for(size_t k=0;k<n;k++) {

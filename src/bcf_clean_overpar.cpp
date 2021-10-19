@@ -299,6 +299,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   NumericMatrix u_post(nd,n);
   NumericMatrix v_post(nd,n);
   NumericVector acc_post(4);
+  NumericVector delta_con_post(nd);
 
   //  NumericMatrix spred2(nd,dip.n);
 
@@ -525,8 +526,9 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       
       save_values(save_ctr, n, ntrt, msd_post, bsd_post, b0_post, b1_post, 
                   sigma_y_post, sigma_u_post, sigma_v_post, rho_post, sigma_i_post,
-                  mscale, bscale1, bscale0, ginfo, m_post, yhat_post, b_post,
-                  u_post, v_post, allfit, allfit_con, allfit_mod);
+                  m_post, yhat_post, b_post, u_post, v_post, delta_con_post, 
+                  mscale, bscale1, bscale0, ginfo, 
+                  allfit, allfit_con, allfit_mod, delta_con);
     }
 
     log_iter("End", iIter+1, nd*thin+burn, sigma_y, sigma_u, sigma_v, rho, mscale, bscale0, bscale1, logger);
@@ -580,6 +582,6 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                       _["sigma_y"] = sigma_y_post, _["sigma_u"] = sigma_u_post, _["sigma_v"] = sigma_v_post,
                       _["rho"] = rho_post, _["sigma_i"] = sigma_i_post, _["u"] = u_post, _["v"] = v_post,
                       _["msd"] = msd_post, _["bsd"] = bsd_post, _["b0"] = b0_post, _["b1"] = b1_post,
-                      _["acceptance"] = acc_post
+                      _["delta_con"] = delta_con_post, _["acceptance"] = acc_post
   ));
 }
