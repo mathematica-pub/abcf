@@ -501,10 +501,11 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
         if (iIter>=(burn-1) && (iIter - burn + 1) % block_batch_size==0) {
           // arma::cov(vec,vec) returns a 1x1 mat and refuses to convert to double for some reason
           arma::mat covar = arma::cov(ginfo.xform_sigma_v.head(iIter+1), ginfo.xform_rho.head(iIter+1));
-          ginfo.cov_sigma_v_rho(0,0) = arma::var(ginfo.xform_sigma_v.head(iIter+1));
+          // Adding small offsets to variance to ensure PSD. E.g. in the case whereyou run 1 burnin so var=0
+          ginfo.cov_sigma_v_rho(0,0) = arma::var(ginfo.xform_sigma_v.head(iIter+1)) + .00000001;
           ginfo.cov_sigma_v_rho(0,1) = covar[0,0];
           ginfo.cov_sigma_v_rho(1,0) = covar[0,0];
-          ginfo.cov_sigma_v_rho(1,1) = arma::var(ginfo.xform_rho.head(iIter+1));
+          ginfo.cov_sigma_v_rho(1,1) = arma::var(ginfo.xform_rho.head(iIter+1)) + .00000001;
         }
       }
 
