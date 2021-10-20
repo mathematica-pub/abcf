@@ -253,11 +253,12 @@ double propose_rho(double rho_current, double ls_proposal, RNG& gen) {
   return(proposal);
 }
 
-arma::vec propose_sigma_v_rho(double sigma_v_current, double rho_current, arma::mat cov_sigma_v_rho, RNG& gen) {
+arma::vec propose_sigma_v_rho(double sigma_v_current, double rho_current, arma::mat xcov_sigma_v_rho, RNG& gen) {
   arma::rowvec xformed_current(2);
   xformed_current(0) = log(sigma_v_current);
   xformed_current(1) = log(rho_current + 1) - log(1 - rho_current); 
-  arma::rowvec draw = mvnorm(xformed_current, cov_sigma_v_rho, gen);
+  // NB: tracked covariance matrix is already on the transformed scale
+  arma::rowvec draw = mvnorm(xformed_current, xcov_sigma_v_rho, gen);
   
   arma::vec proposal(2);
   proposal(0) = exp(draw(0));
@@ -374,7 +375,7 @@ void update_rho(ginfo& gi, double* allfit) {
 }
 
 void update_sigma_v_rho(ginfo& gi, double* allfit) {
-  arma::vec proposal = propose_sigma_v_rho(gi.sigma_v, gi.rho, gi.cov_sigma_v_rho, gi.gen);
+  arma::vec proposal = propose_sigma_v_rho(gi.sigma_v, gi.rho, gi.xcov_sigma_v_rho, gi.gen);
   calculate_sigma2_i(gi, gi.sigma_y, gi.sigma_u, proposal(0), proposal(1), gi.prop_sig2);
 
   double log_prior_current  = log(1 + cos(M_PI*gi.rho))      - 0.5*gi.sigma_v  *gi.sigma_v;

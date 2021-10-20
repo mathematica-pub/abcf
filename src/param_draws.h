@@ -34,7 +34,7 @@ struct ginfo {
    // Helper bits
    arma::vec xform_sigma_v;
    arma::vec xform_rho;
-   arma::mat cov_sigma_v_rho;
+   arma::mat xcov_sigma_v_rho;
    double* ftemp;
    double* prop_sig2;
    RNG& gen;
@@ -86,7 +86,7 @@ double propose_sigma(double sigma_current, double ls_proposal, RNG& gen);
 
 double propose_rho(double rho_current, double ls_proposal, RNG& gen);
 
-arma::vec propose_sigma_v_rho(double sigma_v_current, double rho_current, arma::mat cov_sigma_v_rho, RNG& gen);
+arma::vec propose_sigma_v_rho(double sigma_v_current, double rho_current, arma::mat xcov_sigma_v_rho, RNG& gen);
 
 void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& gi);
 

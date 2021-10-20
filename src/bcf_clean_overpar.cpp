@@ -340,11 +340,12 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   
   arma::vec xform_sigma_v(nd*thin+burn) ;
   arma::vec xform_rho(nd*thin+burn) ;
-  arma::mat cov_sigma_v_rho(2,2);
-  cov_sigma_v_rho(0,0) = 1;
-  cov_sigma_v_rho(0,1) = 0;
-  cov_sigma_v_rho(1,0) = 0;
-  cov_sigma_v_rho(1,1) = 1;
+  arma::mat xcov_sigma_v_rho(2,2);
+  xcov_sigma_v_rho(0,0) = 1;
+  // Start with some covariance, since during testing we see strong covariance
+  xcov_sigma_v_rho(0,1) = 0.05;
+  xcov_sigma_v_rho(1,0) = 0.05;
+  xcov_sigma_v_rho(1,1) = 1;
 
   logger.setLevel(0);
 
@@ -379,9 +380,9 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                  .ac_sigma_u = 0,             // Number of accepted proposals for sigma_u
                  .ac_sigma_v = 0,             // Number of accepted proposals for sigma_v
                  .ac_rho     = 0,             // Number of accepted proposals for rho
-                 .xform_sigma_v   = xform_sigma_v,
-                 .xform_rho       = xform_rho,
-                 .cov_sigma_v_rho = cov_sigma_v_rho,
+                 .xform_sigma_v    = xform_sigma_v,
+                 .xform_rho        = xform_rho,
+                 .xcov_sigma_v_rho = xcov_sigma_v_rho,
                  .ftemp      = ftemp,         // placeholder for fit
                  .prop_sig2  = prop_sig2,     // placeholder for sigma^2 i proposals
                  .gen        = gen,
@@ -500,12 +501,14 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
         // Once we're exiting burn-in, and every block_batch_size iterations thereafter, recalculate the covariance matrix
         if (iIter>=(burn-1) && (iIter - burn + 1) % block_batch_size==0) {
           // arma::cov(vec,vec) returns a 1x1 mat and refuses to convert to double for some reason
+          // NB: covariance matrix is on the transformed scale
           arma::mat covar = arma::cov(ginfo.xform_sigma_v.head(iIter+1), ginfo.xform_rho.head(iIter+1));
           // Adding small offsets to variance to ensure PSD. E.g. in the case whereyou run 1 burnin so var=0
-          ginfo.cov_sigma_v_rho(0,0) = arma::var(ginfo.xform_sigma_v.head(iIter+1)) + .00000001;
-          ginfo.cov_sigma_v_rho(0,1) = covar[0,0];
-          ginfo.cov_sigma_v_rho(1,0) = covar[0,0];
-          ginfo.cov_sigma_v_rho(1,1) = arma::var(ginfo.xform_rho.head(iIter+1)) + .00000001;
+          // Scale covariance matrix by 2.4^2/2 = 2.88 per Haario/Gelman
+          ginfo.xcov_sigma_v_rho(0,0) = 2.88*arma::var(ginfo.xform_sigma_v.head(iIter+1)) + .0000000288;
+          ginfo.xcov_sigma_v_rho(0,1) = 2.88*covar[0,0];
+          ginfo.xcov_sigma_v_rho(1,0) = 2.88*covar[0,0];
+          ginfo.xcov_sigma_v_rho(1,1) = 2.88*arma::var(ginfo.xform_rho.head(iIter+1)) + .0000000288;
         }
       }
 
