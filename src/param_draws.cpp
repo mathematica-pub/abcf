@@ -253,7 +253,7 @@ double propose_rho(double rho_current, double ls_proposal, RNG& gen) {
   return(proposal);
 }
 
-arma::vec propose_sigma_v_rho(double sigma_v_current, double rho_current, arma::mat xcov_sigma_v_rho, RNG& gen) {
+arma::vec propose_sigma_v_rho(double sigma_v_current, double rho_current, arma::mat& xcov_sigma_v_rho, RNG& gen) {
   arma::rowvec xformed_current(2);
   xformed_current(0) = log(sigma_v_current);
   xformed_current(1) = log(rho_current + 1) - log(1 - rho_current); 
@@ -473,6 +473,17 @@ void draw_uv(double* u, double* v, double* allfit, ginfo& gi) {
     u[i] = draw(0);
     v[i] = draw(1);
   }
+}
+
+void update_mh_cov(arma::mat& cov_loc, arma::vec par1, arma::vec par2) {
+  // arma::cov(vec,vec) returns a 1x1 mat and refuses to convert to double for some reason
+  arma::mat covar = arma::cov(par1, par2);
+  // Adding small offsets to variance to ensure PSD. E.g. in the case whereyou run 1 burnin so var=0
+  // Scale covariance matrix by 2.4^2/2 = 2.88 per Haario/Gelman
+  cov_loc(0,0) = 2.88*arma::var(par1) + .0000000288;
+  cov_loc(0,1) = 2.88*covar[0,0];
+  cov_loc(1,0) = 2.88*covar[0,0];
+  cov_loc(1,1) = 2.88*arma::var(par2) + .0000000288;
 }
 
 void update_adaptive_ls(ginfo& gi, size_t iter, int batch_size, double ac_target) {

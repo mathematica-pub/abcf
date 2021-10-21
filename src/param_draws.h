@@ -32,9 +32,9 @@ struct ginfo {
    int ac_sigma_v;
    int ac_rho;
    // Helper bits
-   arma::vec xform_sigma_v;
-   arma::vec xform_rho;
-   arma::mat xcov_sigma_v_rho;
+   arma::vec& xform_sigma_v;
+   arma::vec& xform_rho;
+   arma::mat& xcov_sigma_v_rho;
    double* ftemp;
    double* prop_sig2;
    RNG& gen;
@@ -86,7 +86,7 @@ double propose_sigma(double sigma_current, double ls_proposal, RNG& gen);
 
 double propose_rho(double rho_current, double ls_proposal, RNG& gen);
 
-arma::vec propose_sigma_v_rho(double sigma_v_current, double rho_current, arma::mat xcov_sigma_v_rho, RNG& gen);
+arma::vec propose_sigma_v_rho(double sigma_v_current, double rho_current, arma::mat& xcov_sigma_v_rho, RNG& gen);
 
 void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& gi);
 
@@ -105,6 +105,8 @@ double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, do
 void calculate_sigma2_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_v, double rho, double* return_loc);
 
 void draw_uv(double* u, double* v, double* allfit, ginfo& gi);
+
+void update_mh_cov(arma::mat& cov_loc, arma::vec par1, arma::vec par2);
 
 void update_adaptive_ls(ginfo& gi, size_t iter, int batch_size, double ac_target=0.44);
 

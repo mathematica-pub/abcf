@@ -36,7 +36,7 @@
     return -rtnormlo1(-mean, -lo);
   }
 
-arma::rowvec mvnorm(arma::rowvec mu, arma::mat Sigma, RNG& gen) {
+arma::rowvec mvnorm(arma::rowvec& mu, arma::mat& Sigma, RNG& gen) {
   arma::rowvec rands(2);
   rands(0) = gen.normal();
   rands(1) = gen.normal();

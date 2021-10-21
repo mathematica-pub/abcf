@@ -500,15 +500,8 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
         // Once we're exiting burn-in, and every block_batch_size iterations thereafter, recalculate the covariance matrix
         if (iIter>=(burn-1) && (iIter - burn + 1) % block_batch_size==0) {
-          // arma::cov(vec,vec) returns a 1x1 mat and refuses to convert to double for some reason
           // NB: covariance matrix is on the transformed scale
-          arma::mat covar = arma::cov(ginfo.xform_sigma_v.head(iIter+1), ginfo.xform_rho.head(iIter+1));
-          // Adding small offsets to variance to ensure PSD. E.g. in the case whereyou run 1 burnin so var=0
-          // Scale covariance matrix by 2.4^2/2 = 2.88 per Haario/Gelman
-          ginfo.xcov_sigma_v_rho(0,0) = 2.88*arma::var(ginfo.xform_sigma_v.head(iIter+1)) + .0000000288;
-          ginfo.xcov_sigma_v_rho(0,1) = 2.88*covar[0,0];
-          ginfo.xcov_sigma_v_rho(1,0) = 2.88*covar[0,0];
-          ginfo.xcov_sigma_v_rho(1,1) = 2.88*arma::var(ginfo.xform_rho.head(iIter+1)) + .0000000288;
+          update_mh_cov(ginfo.xcov_sigma_v_rho, ginfo.xform_sigma_v.head(iIter+1), ginfo.xform_rho.head(iIter+1));
         }
       }
 
