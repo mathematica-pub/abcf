@@ -387,7 +387,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
 
     u_post = sdy*fitbcf$u[,order(perm)]
 
-    v_post = sdy*fitbcf$u[,order(perm)]
+    v_post = sdy*fitbcf$v[,order(perm)]
 
     sigma_i = sdy*fitbcf$sigma_i[,order(perm)]
 
@@ -806,7 +806,8 @@ predict.bcf <- function(object,
 
     n_chains = length(object$coda_chains)
 
-    do_type_config <- .get_do_type(n_cores)
+    templog = tempfile()
+    do_type_config <- .get_do_type(n_cores,templog)
     `%doType%` <- do_type_config$doType
 
     chain_out <- foreach::foreach(iChain=1:n_chains) %doType% {
