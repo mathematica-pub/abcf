@@ -573,6 +573,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
       fitObj$acceptance <- NULL
     }
   } else {
+    acceptance = do.call(rbind,lapply(chain_out,`[[`,'acceptance'))
+    row.names(acceptance) = paste0('chain',1:n_chains)
     fitObj <- list(acceptance = acceptance,
                    perm       = perm,
                    include_pi = chain_out[[1]]$include_pi,
