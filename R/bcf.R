@@ -3,7 +3,7 @@
 Rcpp::loadModule(module = "TreeSamples", TRUE)
 
 .ident <- function(...){
-# courtesy https://stackoverflow.com/questions/19966515/how-do-i-test-if-three-variables-are-equal-r
+  # courtesy https://stackoverflow.com/questions/19966515/how-do-i-test-if-three-variables-are-equal-r
   args <- c(...)
   if( length( args ) > 2L ){
     #  recursively call ident()
@@ -36,9 +36,9 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
 .get_chain_tree_files = function(tree_path, chain_id){
   if (is.null(tree_path)){
     out <- list(
-                "con_trees" = toString(character(0)),
-                "mod_trees" = toString(character(0))
-                )
+      "con_trees" = toString(character(0)),
+      "mod_trees" = toString(character(0))
+    )
   } else{
     out <- list("con_trees" = paste0(tree_path,'/',"con_trees.", chain_id, ".txt"),
                 "mod_trees" = paste0(tree_path,'/',"mod_trees.", chain_id, ".txt"))
@@ -245,13 +245,13 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 include_random_effects=FALSE, batch_size = 100,
                 block_v_rho=FALSE, block_batch_size=100,
                 hardcode_sigma_u=FALSE, hardcode_sigma_v=FALSE, hardcode_rho=FALSE,
-                verbose=1
+                simplified_return=FALSE, verbose=1
 ) {
 
 
   if(is.null(w)){
     w <- matrix(1, ncol = 1, nrow = length(y))
-    }
+  }
 
   pihat = as.matrix(pihat)
   if(!.ident(length(y),
@@ -260,7 +260,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
              nrow(x_control),
              nrow(x_moderate),
              nrow(pihat))
-    ) {
+  ) {
     stop("Data size mismatch. The following should all be equal:
          length(y): ", length(y), "\n",
          "length(z): ", length(z), "\n",
@@ -423,153 +423,162 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
 
   }
 
-  all_sigma_y   = c()
-  all_sigma_u   = c()
-  all_sigma_v   = c()
-  all_rho       = c()
-  all_sigma_i   = c()
-  all_mu_scale  = c()
-  all_tau_scale = c()
+  if (!simplified_return) {
+    all_sigma_y   = c()
+    all_sigma_u   = c()
+    all_sigma_v   = c()
+    all_rho       = c()
+    all_sigma_i   = c()
+    all_mu_scale  = c()
+    all_tau_scale = c()
 
-  all_b0        = c()
-  all_b1        = c()
+    all_b0        = c()
+    all_b1        = c()
 
-  all_yhat      = c()
-  all_mu        = c()
-  all_tau       = c()
-  all_u         = c()
-  all_v         = c()
+    all_yhat      = c()
+    all_mu        = c()
+    all_tau       = c()
+    all_u         = c()
+    all_v         = c()
 
-  all_delta_mu  = c()
+    all_delta_mu  = c()
 
-  chain_list=list()
+    chain_list=list()
 
-  n_iter = length(chain_out[[1]]$sigma)
+    n_iter = length(chain_out[[1]]$sigma)
 
-  for (iChain in 1:n_chains){
-    sigma_y      <- chain_out[[iChain]]$sigma_y
-    sigma_u      <- chain_out[[iChain]]$sigma_u
-    sigma_v      <- chain_out[[iChain]]$sigma_v
-    rho          <- chain_out[[iChain]]$rho
-    sigma_i      <- chain_out[[iChain]]$sigma_i
-    mu_scale     <- chain_out[[iChain]]$mu_scale
-    tau_scale    <- chain_out[[iChain]]$tau_scale
+    for (iChain in 1:n_chains){
+      sigma_y      <- chain_out[[iChain]]$sigma_y
+      sigma_u      <- chain_out[[iChain]]$sigma_u
+      sigma_v      <- chain_out[[iChain]]$sigma_v
+      rho          <- chain_out[[iChain]]$rho
+      sigma_i      <- chain_out[[iChain]]$sigma_i
+      mu_scale     <- chain_out[[iChain]]$mu_scale
+      tau_scale    <- chain_out[[iChain]]$tau_scale
 
-    b0           <- chain_out[[iChain]]$b0
-    b1           <- chain_out[[iChain]]$b1
+      b0           <- chain_out[[iChain]]$b0
+      b1           <- chain_out[[iChain]]$b1
 
-    yhat         <- chain_out[[iChain]]$yhat
-    tau          <- chain_out[[iChain]]$tau
-    mu           <- chain_out[[iChain]]$mu
-    u            <- chain_out[[iChain]]$u
-    v            <- chain_out[[iChain]]$v
+      yhat         <- chain_out[[iChain]]$yhat
+      tau          <- chain_out[[iChain]]$tau
+      mu           <- chain_out[[iChain]]$mu
+      u            <- chain_out[[iChain]]$u
+      v            <- chain_out[[iChain]]$v
 
-    delta_mu     <- chain_out[[iChain]]$delta_mu
+      delta_mu     <- chain_out[[iChain]]$delta_mu
 
-    # -----------------------------
-    # Support Old Output
-    # -----------------------------
-    all_sigma_y     = c(all_sigma_y,       sigma_y)
-    all_sigma_u     = c(all_sigma_u,       sigma_u)
-    all_sigma_v     = c(all_sigma_v,       sigma_v)
-    all_rho         = c(all_rho,           rho)
-    all_sigma_i     = rbind(all_sigma_i,   sigma_i)
-    all_mu_scale    = c(all_mu_scale,      mu_scale)
-    all_tau_scale   = c(all_tau_scale,     tau_scale)
-    all_b0          = c(all_b0,            b0)
-    all_b1          = c(all_b1,            b1)
+      # -----------------------------
+      # Support Old Output
+      # -----------------------------
+      all_sigma_y     = c(all_sigma_y,       sigma_y)
+      all_sigma_u     = c(all_sigma_u,       sigma_u)
+      all_sigma_v     = c(all_sigma_v,       sigma_v)
+      all_rho         = c(all_rho,           rho)
+      all_sigma_i     = rbind(all_sigma_i,   sigma_i)
+      all_mu_scale    = c(all_mu_scale,      mu_scale)
+      all_tau_scale   = c(all_tau_scale,     tau_scale)
+      all_b0          = c(all_b0,            b0)
+      all_b1          = c(all_b1,            b1)
 
-    all_yhat        = rbind(all_yhat,      yhat)
-    all_mu          = rbind(all_mu,        mu)
-    all_tau         = rbind(all_tau,       tau)
-    all_u           = rbind(all_u,         u)
-    all_v           = rbind(all_v,         v)
+      all_yhat        = rbind(all_yhat,      yhat)
+      all_mu          = rbind(all_mu,        mu)
+      all_tau         = rbind(all_tau,       tau)
+      all_u           = rbind(all_u,         u)
+      all_v           = rbind(all_v,         v)
 
-    all_delta_mu    = c(all_delta_mu,      delta_mu)
+      all_delta_mu    = c(all_delta_mu,      delta_mu)
 
-    # -----------------------------
-    # Make the MCMC Object
-    # -----------------------------
+      # -----------------------------
+      # Make the MCMC Object
+      # -----------------------------
 
-    scalar_df <- data.frame("sigma_y"   = sigma_y,
-                            "sigma_u"   = sigma_u,
-                            "sigma_v"   = sigma_v,
-                            "rho"       = rho,
-                            "tau_bar"   = matrixStats::rowWeightedMeans(tau, w),
-                            "mu_bar"    = matrixStats::rowWeightedMeans(mu, w),
-                            "yhat_bar"  = matrixStats::rowWeightedMeans(yhat, w),
-                            "mu_scale"  = mu_scale,
-                            # "tau_scale" = tau_scale,
-                            "b0"        = b0,
-                            "b1"        = b1,
-                            "delta_mu"  = delta_mu)
+      scalar_df <- data.frame("sigma_y"   = sigma_y,
+                              "sigma_u"   = sigma_u,
+                              "sigma_v"   = sigma_v,
+                              "rho"       = rho,
+                              "tau_bar"   = matrixStats::rowWeightedMeans(tau, w),
+                              "mu_bar"    = matrixStats::rowWeightedMeans(mu, w),
+                              "yhat_bar"  = matrixStats::rowWeightedMeans(yhat, w),
+                              "mu_scale"  = mu_scale,
+                              # "tau_scale" = tau_scale,
+                              "b0"        = b0,
+                              "b1"        = b1,
+                              "delta_mu"  = delta_mu)
 
-    # y_df <- as.data.frame(chain$yhat)
-    # colnames(y_df) <- paste0('y',1:ncol(y_df))
-    #
-    # mu_df <- as.data.frame(chain$mu)
-    # colnames(mu_df) <- paste0('mu',1:ncol(mu_df))
-    #
-    # tau_df <- as.data.frame(chain$tau)
-    # colnames(tau_df) <- paste0('tau',1:ncol(tau_df))
+      # y_df <- as.data.frame(chain$yhat)
+      # colnames(y_df) <- paste0('y',1:ncol(y_df))
+      #
+      # mu_df <- as.data.frame(chain$mu)
+      # colnames(mu_df) <- paste0('mu',1:ncol(mu_df))
+      #
+      # tau_df <- as.data.frame(chain$tau)
+      # colnames(tau_df) <- paste0('tau',1:ncol(tau_df))
 
-    chain_list[[iChain]] <- coda::as.mcmc(scalar_df)
-    # -----------------------------
-    # Sanity Check Constants Accross Chains
-    # -----------------------------
-    if(chain_out[[iChain]]$sdy        != chain_out[[1]]$sdy)        stop("sdy not consistent between chains for no reason")
-    if(chain_out[[iChain]]$con_sd     != chain_out[[1]]$con_sd)     stop("con_sd not consistent between chains for no reason")
-    if(chain_out[[iChain]]$mod_sd     != chain_out[[1]]$mod_sd)     stop("mod_sd not consistent between chains for no reason")
-    if(chain_out[[iChain]]$muy        != chain_out[[1]]$muy)        stop("muy not consistent between chains for no reason")
-    if(chain_out[[iChain]]$include_pi != chain_out[[1]]$include_pi) stop("include_pi not consistent between chains for no reason")
-    if(chain_out[[iChain]]$include_random_effects != chain_out[[1]]$include_random_effects) stop("include_random_effects not consistent between chains for no reason")
-    if(any(chain_out[[iChain]]$perm   != chain_out[[1]]$perm))      stop("perm not consistent between chains for no reason")
-  }
-  acceptance = do.call(rbind,lapply(chain_out,`[[`,'acceptance'))
-  row.names(acceptance) = paste0('chain',1:n_chains)
-
-  fitObj <- list(sigma_y    = all_sigma_y,
-                 sigma_u    = all_sigma_u,
-                 sigma_v    = all_sigma_v,
-                 rho        = all_rho,
-                 sigma_i    = all_sigma_i,
-                 yhat       = all_yhat,
-                 sdy        = chain_out[[1]]$sdy,
-                 muy        = chain_out[[1]]$muy,
-                 mu         = all_mu,
-                 tau        = all_tau,
-                 u          = all_u,
-                 v          = all_v,
-                 mu_scale   = all_mu_scale,
-                 tau_scale  = all_tau_scale,
-                 b0         = all_b0,
-                 b1         = all_b1,
-                 delta_mu   = all_delta_mu,
-                 acceptance = acceptance,
-                 perm       = perm,
-                 include_pi = chain_out[[1]]$include_pi,
-                 include_random_effects = chain_out[[1]]$include_random_effects,
-                 random_seed = chain_out[[1]]$random_seed,
-                 coda_chains = coda::as.mcmc.list(chain_list),
-                 raw_chains = chain_out)
-
-  #Remove random effect return stuff if no REs
-  if (!fitObj$include_random_effects) {
-    fitObj$sigma_u <- fitObj$sigma_v <- fitObj$rho <- fitObj$sigma_i <- fitObj$u <- fitObj$v <- NULL
-    names(fitObj)[names(fitObj)=='sigma_y'] <- 'sigma'
-    fitObj$raw_chains <- lapply(fitObj$raw_chains, function(x) {
-      x$sigma_u <- x$sigma_v <- x$rho <- x$sigma_i <- x$u <- x$v <- x$acceptance <- NULL
-      names(x)[names(x)=='sigma_y'] <- 'sigma'
-      return(x)
-    })
-
-    for (iChain in 1:n_chains) {
-      keep <- !(colnames(fitObj$coda_chains[[iChain]]) %in% c('sigma_u','sigma_v','rho'))
-      fitObj$coda_chains[[iChain]] <- fitObj$coda_chains[[iChain]][,keep]
-      colnames(fitObj$coda_chains[[iChain]])[colnames(fitObj$coda_chains[[iChain]])=='sigma_y'] <- 'sigma'
+      chain_list[[iChain]] <- coda::as.mcmc(scalar_df)
+      # -----------------------------
+      # Sanity Check Constants Accross Chains
+      # -----------------------------
+      if(chain_out[[iChain]]$sdy        != chain_out[[1]]$sdy)        stop("sdy not consistent between chains for no reason")
+      if(chain_out[[iChain]]$con_sd     != chain_out[[1]]$con_sd)     stop("con_sd not consistent between chains for no reason")
+      if(chain_out[[iChain]]$mod_sd     != chain_out[[1]]$mod_sd)     stop("mod_sd not consistent between chains for no reason")
+      if(chain_out[[iChain]]$muy        != chain_out[[1]]$muy)        stop("muy not consistent between chains for no reason")
+      if(chain_out[[iChain]]$include_pi != chain_out[[1]]$include_pi) stop("include_pi not consistent between chains for no reason")
+      if(chain_out[[iChain]]$include_random_effects != chain_out[[1]]$include_random_effects) stop("include_random_effects not consistent between chains for no reason")
+      if(any(chain_out[[iChain]]$perm   != chain_out[[1]]$perm))      stop("perm not consistent between chains for no reason")
     }
+    acceptance = do.call(rbind,lapply(chain_out,`[[`,'acceptance'))
+    row.names(acceptance) = paste0('chain',1:n_chains)
 
-    fitObj$acceptance <- NULL
+    fitObj <- list(sigma_y    = all_sigma_y,
+                   sigma_u    = all_sigma_u,
+                   sigma_v    = all_sigma_v,
+                   rho        = all_rho,
+                   sigma_i    = all_sigma_i,
+                   yhat       = all_yhat,
+                   sdy        = chain_out[[1]]$sdy,
+                   muy        = chain_out[[1]]$muy,
+                   mu         = all_mu,
+                   tau        = all_tau,
+                   u          = all_u,
+                   v          = all_v,
+                   mu_scale   = all_mu_scale,
+                   tau_scale  = all_tau_scale,
+                   b0         = all_b0,
+                   b1         = all_b1,
+                   delta_mu   = all_delta_mu,
+                   acceptance = acceptance,
+                   perm       = perm,
+                   include_pi = chain_out[[1]]$include_pi,
+                   include_random_effects = chain_out[[1]]$include_random_effects,
+                   random_seed = chain_out[[1]]$random_seed,
+                   coda_chains = coda::as.mcmc.list(chain_list),
+                   raw_chains = chain_out)
+
+    #Remove random effect return stuff if no REs
+    if (!fitObj$include_random_effects) {
+      fitObj$sigma_u <- fitObj$sigma_v <- fitObj$rho <- fitObj$sigma_i <- fitObj$u <- fitObj$v <- NULL
+      names(fitObj)[names(fitObj)=='sigma_y'] <- 'sigma'
+      fitObj$raw_chains <- lapply(fitObj$raw_chains, function(x) {
+        x$sigma_u <- x$sigma_v <- x$rho <- x$sigma_i <- x$u <- x$v <- x$acceptance <- NULL
+        names(x)[names(x)=='sigma_y'] <- 'sigma'
+        return(x)
+      })
+
+      for (iChain in 1:n_chains) {
+        keep <- !(colnames(fitObj$coda_chains[[iChain]]) %in% c('sigma_u','sigma_v','rho'))
+        fitObj$coda_chains[[iChain]] <- fitObj$coda_chains[[iChain]][,keep]
+        colnames(fitObj$coda_chains[[iChain]])[colnames(fitObj$coda_chains[[iChain]])=='sigma_y'] <- 'sigma'
+      }
+
+      fitObj$acceptance <- NULL
+    }
+  } else {
+    fitObj <- list(acceptance = acceptance,
+                   perm       = perm,
+                   include_pi = chain_out[[1]]$include_pi,
+                   include_random_effects = chain_out[[1]]$include_random_effects,
+                   random_seed = chain_out[[1]]$random_seed,
+                   raw_chains = chain_out)
   }
 
   attr(fitObj, "class") <- "bcf"
@@ -763,125 +772,125 @@ predict.bcf <- function(object,
                         n_cores=2,
                         ...) {
 
-    if(any(is.na(x_predict_moderate))) stop("Missing values in x_predict_moderate")
-    if(any(is.na(x_predict_control))) stop("Missing values in x_predict_control")
-    if(any(is.na(z_pred))) stop("Missing values in z_pred")
-    if(any(!is.finite(x_predict_moderate))) stop("Non-numeric values in x_pred_moderate")
-    if(any(!is.finite(x_predict_control))) stop("Non-numeric values in x_pred_control")
-    if(any(!is.finite(pi_pred))) stop("Non-numeric values in pi_pred")
-    if(!all(sort(unique(z_pred)) == c(0,1))) stop("z_pred must be a vector of 0's and 1's, with at least one of each")
+  if(any(is.na(x_predict_moderate))) stop("Missing values in x_predict_moderate")
+  if(any(is.na(x_predict_control))) stop("Missing values in x_predict_control")
+  if(any(is.na(z_pred))) stop("Missing values in z_pred")
+  if(any(!is.finite(x_predict_moderate))) stop("Non-numeric values in x_pred_moderate")
+  if(any(!is.finite(x_predict_control))) stop("Non-numeric values in x_pred_control")
+  if(any(!is.finite(pi_pred))) stop("Non-numeric values in pi_pred")
+  if(!all(sort(unique(z_pred)) == c(0,1))) stop("z_pred must be a vector of 0's and 1's, with at least one of each")
 
-    if((is.null(x_predict_moderate) & !is.null(x_predict_control)) | (!is.null(x_predict_moderate) & is.null(x_predict_control))) {
-        stop("If you want to predict, you need to add values to both x_pred_control and x_pred_moderate")
-    }
+  if((is.null(x_predict_moderate) & !is.null(x_predict_control)) | (!is.null(x_predict_moderate) & is.null(x_predict_control))) {
+    stop("If you want to predict, you need to add values to both x_pred_control and x_pred_moderate")
+  }
 
-    pi_pred = as.matrix(pi_pred)
-    if(!.ident(length(z_pred),
-                nrow(x_predict_moderate),
-                nrow(x_predict_control),
-                nrow(pi_pred))
-        ) {
-        stop("Data size mismatch. The following should all be equal:
+  pi_pred = as.matrix(pi_pred)
+  if(!.ident(length(z_pred),
+             nrow(x_predict_moderate),
+             nrow(x_predict_control),
+             nrow(pi_pred))
+  ) {
+    stop("Data size mismatch. The following should all be equal:
             length(z_pred): ", length(z_pred), "\n",
-            "nrow(x_pred_moderate): ", nrow(x_predict_moderate), "\n",
-            "nrow(x_pred_control): ", nrow(x_predict_control), "\n",
-            "nrow(pi_pred): ", nrow(pi_pred), "\n"
-        )
-    }
+         "nrow(x_pred_moderate): ", nrow(x_predict_moderate), "\n",
+         "nrow(x_pred_control): ", nrow(x_predict_control), "\n",
+         "nrow(pi_pred): ", nrow(pi_pred), "\n"
+    )
+  }
 
 
-    cat("Initializing BCF Prediction\n")
-    x_pm = matrix(x_predict_moderate, ncol=ncol(x_predict_moderate))
-    x_pc = matrix(x_predict_control, ncol=ncol(x_predict_control))
+  cat("Initializing BCF Prediction\n")
+  x_pm = matrix(x_predict_moderate, ncol=ncol(x_predict_moderate))
+  x_pc = matrix(x_predict_control, ncol=ncol(x_predict_control))
 
-    if(object$include_pi=="both" | object$include_pi=="control") {
-        x_pc = cbind(x_predict_control, pi_pred)
-    }
-    if(object$include_pi=="both" | object$include_pi=="moderate") {
-        x_pm = cbind(x_predict_moderate, pi_pred)
-    }
-
-
-    cat("Starting Prediction \n")
-
-    n_chains = length(object$coda_chains)
-
-    templog = tempfile()
-    do_type_config <- .get_do_type(n_cores,templog)
-    `%doType%` <- do_type_config$doType
-
-    chain_out <- foreach::foreach(iChain=1:n_chains) %doType% {
-
-      tree_files = .get_chain_tree_files(save_tree_directory, iChain)
-
-      cat("Starting to Predict Chain ", iChain, "\n")
-
-      mods = TreeSamples$new()
-      mods$load(tree_files$mod_trees)
-      Tm = mods$predict(t(x_pm))
-
-      cons = TreeSamples$new()
-      cons$load(tree_files$con_trees)
-      Tc = cons$predict(t(x_pc))
+  if(object$include_pi=="both" | object$include_pi=="control") {
+    x_pc = cbind(x_predict_control, pi_pred)
+  }
+  if(object$include_pi=="both" | object$include_pi=="moderate") {
+    x_pm = cbind(x_predict_moderate, pi_pred)
+  }
 
 
-      list(Tm = Tm,
-           Tc = Tc)
-    }
+  cat("Starting Prediction \n")
 
-    all_yhat = c()
-    all_mu   = c()
-    all_tau  = c()
+  n_chains = length(object$coda_chains)
 
-    chain_list=list()
+  templog = tempfile()
+  do_type_config <- .get_do_type(n_cores,templog)
+  `%doType%` <- do_type_config$doType
 
-    muy = object$muy
+  chain_out <- foreach::foreach(iChain=1:n_chains) %doType% {
 
-    sdy = object$sdy
+    tree_files = .get_chain_tree_files(save_tree_directory, iChain)
 
-    for (iChain in 1:n_chains){
+    cat("Starting to Predict Chain ", iChain, "\n")
 
+    mods = TreeSamples$new()
+    mods$load(tree_files$mod_trees)
+    Tm = mods$predict(t(x_pm))
 
-        # Extract Chain Specific Information
-
-        Tm = chain_out[[iChain]]$Tm
-        Tc = chain_out[[iChain]]$Tc
-
-        this_chain_bcf_out = object$raw_chains[[iChain]]
-
-        b1 = this_chain_bcf_out$b1
-        b0 = this_chain_bcf_out$b0
-        mu_scale = this_chain_bcf_out$mu_scale
+    cons = TreeSamples$new()
+    cons$load(tree_files$con_trees)
+    Tc = cons$predict(t(x_pc))
 
 
+    list(Tm = Tm,
+         Tc = Tc)
+  }
 
-        # Calculate, tau, y, and mu
+  all_yhat = c()
+  all_mu   = c()
+  all_tau  = c()
+
+  chain_list=list()
+
+  muy = object$muy
+
+  sdy = object$sdy
+
+  for (iChain in 1:n_chains){
 
 
-        mu  = muy + sdy*(Tc*mu_scale + Tm*b0)
-        tau = sdy*(b1 - b0)*Tm
-        yhat = mu + t(t(tau)*z_pred)
+    # Extract Chain Specific Information
 
+    Tm = chain_out[[iChain]]$Tm
+    Tc = chain_out[[iChain]]$Tc
 
-        # Package Output up
-        all_yhat = rbind(all_yhat, yhat)
-        all_mu   = rbind(all_mu,   mu)
-        all_tau  = rbind(all_tau,  tau)
+    this_chain_bcf_out = object$raw_chains[[iChain]]
+
+    b1 = this_chain_bcf_out$b1
+    b0 = this_chain_bcf_out$b0
+    mu_scale = this_chain_bcf_out$mu_scale
 
 
 
-        scalar_df <- data.frame("tau_bar"   = matrixStats::rowWeightedMeans(tau, w=NULL),
-                                "mu_bar"    = matrixStats::rowWeightedMeans(mu, w=NULL),
-                                "yhat_bar"  = matrixStats::rowWeightedMeans(yhat, w=NULL))
-
-        chain_list[[iChain]] <- coda::as.mcmc(scalar_df)
-    }
-
-   .cleanup_after_par(do_type_config)
+    # Calculate, tau, y, and mu
 
 
-    list(tau = all_tau,
-         mu = all_mu,
-         yhat = all_yhat,
-         coda_chains = coda::as.mcmc.list(chain_list))
+    mu  = muy + sdy*(Tc*mu_scale + Tm*b0)
+    tau = sdy*(b1 - b0)*Tm
+    yhat = mu + t(t(tau)*z_pred)
+
+
+    # Package Output up
+    all_yhat = rbind(all_yhat, yhat)
+    all_mu   = rbind(all_mu,   mu)
+    all_tau  = rbind(all_tau,  tau)
+
+
+
+    scalar_df <- data.frame("tau_bar"   = matrixStats::rowWeightedMeans(tau, w=NULL),
+                            "mu_bar"    = matrixStats::rowWeightedMeans(mu, w=NULL),
+                            "yhat_bar"  = matrixStats::rowWeightedMeans(yhat, w=NULL))
+
+    chain_list[[iChain]] <- coda::as.mcmc(scalar_df)
+  }
+
+  .cleanup_after_par(do_type_config)
+
+
+  list(tau = all_tau,
+       mu = all_mu,
+       yhat = all_yhat,
+       coda_chains = coda::as.mcmc.list(chain_list))
 }
