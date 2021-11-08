@@ -581,6 +581,15 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                    include_random_effects = chain_out[[1]]$include_random_effects,
                    random_seed = chain_out[[1]]$random_seed,
                    raw_chains = chain_out)
+
+    #Still need to rename
+    if (!fitObj$include_random_effects) {
+      fitObj$raw_chains <- lapply(fitObj$raw_chains, function(x) {
+        x$sigma_u <- x$sigma_v <- x$rho <- x$sigma_i <- x$u <- x$v <- NULL
+        names(x)[names(x)=='sigma_y'] <- 'sigma'
+        return(x)
+      })
+    }
   }
 
   attr(fitObj, "class") <- "bcf"
