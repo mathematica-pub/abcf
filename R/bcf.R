@@ -389,6 +389,11 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
 
     v_post = sdy*fitbcf$v[,order(perm)]
 
+    if (include_random_effects) {
+      tau_post <- tau_post + v_post
+      mu_post  <- mu_post  + u_post
+    }
+
     sigma_i = sdy*fitbcf$sigma_i[,order(perm)]
 
     yhat_post = muy + sdy*fitbcf$yhat_post[,order(perm)]
