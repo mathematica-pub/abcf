@@ -396,7 +396,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
 
     sigma_i = sdy*fitbcf$sigma_i[,order(perm)]
 
-    yhat_post = muy + sdy*fitbcf$yhat_post[,order(perm)]
+    yhat_post = muy + sdy*fitbcf$yhat_post[,order(perm)] + u_post + v_post
 
     names(fitbcf$acceptance) = c('sigma_y','sigma_u','sigma_v','rho')
 
