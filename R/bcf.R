@@ -385,18 +385,19 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
 
     mu_post  = muy + sdy*(Tc*fitbcf$msd + Tm*fitbcf$b0)
 
+    yhat_post = muy + sdy*fitbcf$yhat_post[,order(perm)]
+
     u_post = sdy*fitbcf$u[,order(perm)]
 
     v_post = sdy*fitbcf$v[,order(perm)]
 
     if (include_random_effects) {
-      tau_post <- tau_post + v_post
-      mu_post  <- mu_post  + u_post
+      tau_post   <- tau_post  + v_post
+      mu_post    <- mu_post   + u_post
+      yhat_post  <- yhat_post + u_post + v_post
     }
 
     sigma_i = sdy*fitbcf$sigma_i[,order(perm)]
-
-    yhat_post = muy + sdy*fitbcf$yhat_post[,order(perm)] + u_post + v_post
 
     names(fitbcf$acceptance) = c('sigma_y','sigma_u','sigma_v','rho')
 
