@@ -394,7 +394,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
     if (include_random_effects) {
       tau_post   <- tau_post  + v_post
       mu_post    <- mu_post   + u_post
-      yhat_post  <- yhat_post + u_post + v_post * z
+      yhat_post  <- yhat_post + u_post + t(t(v_post) * z)
     }
 
     sigma_i = sdy*fitbcf$sigma_i[,order(perm)]
