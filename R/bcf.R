@@ -132,6 +132,7 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
 #' @param use_tauscale Use a half-Normal prior on the scale of tau.
 #' @param include_random_effects Use individual-level random effects u and v.
 #' @param batch_size Batch size to use for adapative Metropolis Hastings sampling (random effects model only)
+#' @param block_b0_b1 Whether to constrain b0 and b1. Better mixing at the expense of assuming equal variance across t/c
 #' @param acceptance_target Target acceptance rate for adaptive MH
 #' @param verbose Integer, whether to print log of MCMC iterations, defaults to 1 - basic logging of iteration progress.
 #' Setting to 0 disables logging, while setting to 2 enables logging of detailed statistics each iteration,
@@ -244,6 +245,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 include_pi = "control", use_muscale=TRUE, use_tauscale=TRUE,
                 include_random_effects=FALSE, batch_size = 100,
                 block_v_rho=FALSE, block_batch_size=100,
+                block_b0_b1=FALSE,
                 hardcode_sigma_u=FALSE, hardcode_sigma_v=FALSE, hardcode_rho=FALSE,
                 simplified_return=FALSE, verbose=1
 ) {
@@ -369,6 +371,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                                  verbose=verbose,
                                  block_v_rho=block_v_rho,
                                  block_batch_size=block_batch_size,
+                                 block_b0_b1=block_b0_b1,
                                  hardcode_sigma_u=hardcode_sigma_u,
                                  hardcode_sigma_v=hardcode_sigma_v,
                                  hardcode_rho=hardcode_rho)

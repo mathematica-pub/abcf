@@ -44,6 +44,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   int batch_size = 100, double acceptance_target=0.44,
                   double trt_init = 1.0, int verbose=1, 
                   bool block_v_rho=false, int block_batch_size = 100,
+                  bool block_b0_b1=false,
                   bool hardcode_sigma_u=false, bool hardcode_sigma_v=false, bool hardcode_rho=false)
 {
 
@@ -460,8 +461,13 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     logger.log("- MCMC iteration Cleanup");
     logger.log("=====================================");
 
-    if(use_bscale) {
+    if(use_bscale && !block_b0_b1) {
       update_bscale(bscale0, bscale1, 
+                    b_half_normal,
+                    allfit_con, allfit_mod,
+                    ginfo, wi_mod, verbose_itr);
+    } else if (use_bscale && block_b0_b1) {
+      update_bscale_block(bscale0, bscale1, 
                     b_half_normal,
                     allfit_con, allfit_mod,
                     ginfo, wi_mod, verbose_itr);

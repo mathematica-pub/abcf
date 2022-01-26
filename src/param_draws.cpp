@@ -232,6 +232,48 @@ void update_bscale(double& bscale0, double& bscale1,
     update_pi(wi, gi.logger, verbose);
 }
 
+void update_bscale_block(double& bscale0, double& bscale1,
+                        bool b_half_normal,
+                        double* allfit_con, double* allfit_mod,
+                        ginfo& gi, winfo& wi, bool verbose) {
+    double ww0 = 0.0, ww1 = 0.0;
+    double rw0 = 0.0, rw1 = 0.0;
+
+    calculate_rwww(0,       gi.ntrt, gi.sigma2_i, bscale1, allfit_mod, allfit_con, gi.y, ww1, rw1);
+    calculate_rwww(gi.ntrt, gi.n,    gi.sigma2_i, bscale0, allfit_mod, allfit_con, gi.y, ww0, rw0);
+
+    double bscale1_old = bscale1;
+
+    // Draw new single b1, conjugate
+    // b0 is constrained to -b1
+    gi.logger.startContext();
+    // likelihood precision is sum of tau^2/sigma_i^2 for both T and C
+    // prior is normal with mean 0 and var .25, so prec=4
+    double bscale_post_var = 1/(ww0 + ww1 + 4);
+    double bscale_post_mean = bscale_post_var * (rw1 - rw0);
+    bscale1 = bscale_post_mean + gi.gen.normal(0., 1.)*sqrt(bscale_post_var);
+    bscale0 = -bscale1;
+    if(verbose){
+        Rcpp::Rcout << "Original : " << bscale1_old << "\n";
+        Rcpp::Rcout << "scale_prec : " << 4 << ", ww : " << ww0+ww1 << ", rw : " << rw1-rw0 << "\n";
+        Rcpp::Rcout << "New : " << bscale1 << "\n\n";
+    }
+    gi.logger.stopContext();
+
+    // Ratio is the same for T and C since minuses cancel
+    double scale_ratio = bscale1 / bscale1_old;
+    for(size_t k=0; k<gi.n; ++k) {
+        allfit_mod[k] = allfit_mod[k]*scale_ratio;
+    }
+
+    // Not currently accesible from R - hardcoded to true
+    if(!b_half_normal) {
+       draw_delta(wi.t, wi.pi, wi.delta, gi.gen) ;
+    }
+
+    update_pi(wi, gi.logger, verbose);
+}
+
 void initialize_sigmas(double& sigma_y, double& sigma_u, double& sigma_v, double& rho, RNG& gen) {
   // sigma_y is not changed
   sigma_u = fabs(gen.normal(0., 1.));

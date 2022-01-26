@@ -80,6 +80,11 @@ void update_bscale(double& bscale0, double& bscale1,
                     double* allfit_con, double* allfit_mod,
                     ginfo& gi, winfo& wi, bool verbose);
 
+void update_bscale_block(double& bscale0, double& bscale1,
+                        bool b_half_normal,
+                        double* allfit_con, double* allfit_mod,
+                        ginfo& gi, winfo& wi, bool verbose);
+
 void initialize_sigmas(double& sigma_y, double& sigma_u, double& sigma_v, double& rho, RNG& gen);
 
 double propose_sigma(double sigma_current, double ls_proposal, RNG& gen);
