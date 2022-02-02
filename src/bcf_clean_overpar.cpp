@@ -45,6 +45,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   double trt_init = 1.0, int verbose=1, 
                   bool block_v_rho=false, int block_batch_size = 100,
                   bool block_b0_b1=false,
+                  double sigu_hyperprior=1.0, double sigv_hyperprior=1.0,
                   bool hardcode_sigma_u=false, bool hardcode_sigma_v=false, bool hardcode_rho=false)
 {
 
@@ -231,7 +232,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   double rho = 0;
   // For others draw from prior if we're doing random effects
   if (randeff) {
-    initialize_sigmas(sigma_y, sigma_u, sigma_v, rho, gen);
+    initialize_sigmas(sigma_y, sigma_u, sigma_v, rho, sigu_hyperprior, sigv_hyperprior, gen);
     // sigmas can't be hardcoded to 0 or u/v's Sigma isn't invertible
     if(hardcode_sigma_u) {
       sigma_u = 0.00000001;
@@ -490,16 +491,16 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       // each of these updates will also update sigma2_i when they run
       update_sigma_y(ginfo, allfit, nu, lambda);
       if (!hardcode_sigma_u) {
-        update_sigma_u(ginfo, allfit);
+        update_sigma_u(ginfo, allfit, sigu_hyperprior);
       }
       if (!block_v_rho && !hardcode_sigma_v) {
-        update_sigma_v(ginfo, allfit);
+        update_sigma_v(ginfo, allfit, sigv_hyperprior);
       }
       if (!block_v_rho && !hardcode_rho) {
         update_rho(ginfo, allfit);
       }
       if (block_v_rho) {
-        update_sigma_v_rho(ginfo, allfit);
+        update_sigma_v_rho(ginfo, allfit, sigv_hyperprior);
         // Update the tracker with transformations
         ginfo.xform_sigma_v[iIter] = log(ginfo.sigma_v);
         ginfo.xform_rho[iIter] = log(ginfo.rho + 1) - log(1 - ginfo.rho);

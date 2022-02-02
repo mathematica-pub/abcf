@@ -274,10 +274,10 @@ void update_bscale_block(double& bscale0, double& bscale1,
     update_pi(wi, gi.logger, verbose);
 }
 
-void initialize_sigmas(double& sigma_y, double& sigma_u, double& sigma_v, double& rho, RNG& gen) {
+void initialize_sigmas(double& sigma_y, double& sigma_u, double& sigma_v, double& rho, double sigu_hyperprior, double sigv_hyperprior, RNG& gen) {
   // sigma_y is not changed
-  sigma_u = fabs(gen.normal(0., 1.));
-  sigma_v = fabs(gen.normal(0., 1.));
+  sigma_u = fabs(gen.normal(0., sigu_hyperprior));
+  sigma_v = fabs(gen.normal(0., sigv_hyperprior));
   rho = rc_invcdf(gen.uniform(), 0., 1.);
 }
 
@@ -344,13 +344,13 @@ void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda) {
   }
 }
 
-void update_sigma_u(ginfo& gi, double* allfit) {
+void update_sigma_u(ginfo& gi, double* allfit, double hyperprior) {
   // Proposal is an adaptive MH draw, scaled by ls_sigma_u
   double proposal = propose_sigma(gi.sigma_u, gi.ls_sigma_u, gi.gen);
   calculate_sigma2_i(gi, gi.sigma_y, proposal, gi.sigma_v, gi.rho, gi.prop_sig2);
 
-  double log_prior_current =  -gi.sigma_u*gi.sigma_u/2;
-  double log_prior_proposed = -proposal*proposal/2;
+  double log_prior_current =  -gi.sigma_u*gi.sigma_u / (2 * hyperprior * hyperprior);
+  double log_prior_proposed = -proposal  *proposal   / (2 * hyperprior * hyperprior);
   double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed);
   double log_ratio = lp_diff + log(proposal) - log(gi.sigma_u);
 
@@ -368,13 +368,13 @@ void update_sigma_u(ginfo& gi, double* allfit) {
   }
 }
 
-void update_sigma_v(ginfo& gi, double* allfit) {
+void update_sigma_v(ginfo& gi, double* allfit, double hyperprior) {
   // Proposal is an adaptive MH draw, scaled by ls_sigma_v
   double proposal = propose_sigma(gi.sigma_v, gi.ls_sigma_v, gi.gen);
   calculate_sigma2_i(gi, gi.sigma_y, gi.sigma_u, proposal, gi.rho, gi.prop_sig2);
 
-  double log_prior_current =  -gi.sigma_v*gi.sigma_v/2;
-  double log_prior_proposed = -proposal*proposal/2;
+  double log_prior_current =  -gi.sigma_v*gi.sigma_v / (2 * hyperprior * hyperprior);
+  double log_prior_proposed = -proposal  *proposal   / (2 * hyperprior * hyperprior);
   double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed);
   double log_ratio = lp_diff + log(proposal) - log(gi.sigma_v);
 
@@ -416,12 +416,12 @@ void update_rho(ginfo& gi, double* allfit) {
   }
 }
 
-void update_sigma_v_rho(ginfo& gi, double* allfit) {
+void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior) {
   arma::vec proposal = propose_sigma_v_rho(gi.sigma_v, gi.rho, gi.xcov_sigma_v_rho, gi.gen);
   calculate_sigma2_i(gi, gi.sigma_y, gi.sigma_u, proposal(0), proposal(1), gi.prop_sig2);
 
-  double log_prior_current  = log(1 + cos(M_PI*gi.rho))      - 0.5*gi.sigma_v  *gi.sigma_v;
-  double log_prior_proposed = log(1 + cos(M_PI*proposal(1))) - 0.5*proposal(0)*proposal(0);
+  double log_prior_current  = log(1 + cos(M_PI*gi.rho))      - 0.5*gi.sigma_v  *gi.sigma_v / (hyperprior * hyperprior);
+  double log_prior_proposed = log(1 + cos(M_PI*proposal(1))) - 0.5*proposal(0)*proposal(0) / (hyperprior * hyperprior);
   double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed);
   double log_ratio_jacobian = log(fabs(proposal(0)*(proposal(1)*proposal(1) - 1))) - log(fabs(gi.sigma_v*(gi.rho*gi.rho - 1)));
   double log_ratio = lp_diff + log_ratio_jacobian;

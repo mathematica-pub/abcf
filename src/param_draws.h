@@ -85,7 +85,7 @@ void update_bscale_block(double& bscale0, double& bscale1,
                         double* allfit_con, double* allfit_mod,
                         ginfo& gi, winfo& wi, bool verbose);
 
-void initialize_sigmas(double& sigma_y, double& sigma_u, double& sigma_v, double& rho, RNG& gen);
+void initialize_sigmas(double& sigma_y, double& sigma_u, double& sigma_v, double& rho, double sigu_hyperprior, double sigv_hyperprior, RNG& gen);
 
 double propose_sigma(double sigma_current, double ls_proposal, RNG& gen);
 
@@ -97,13 +97,13 @@ void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda
 
 void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda);
 
-void update_sigma_u(ginfo& gi, double* allfit);
+void update_sigma_u(ginfo& gi, double* allfit, double hyperprior);
 
-void update_sigma_v(ginfo& gi, double* allfit);
+void update_sigma_v(ginfo& gi, double* allfit, double hyperprior);
 
 void update_rho(ginfo& gi, double* allfit);
 
-void update_sigma_v_rho(ginfo& gi, double* allfit);
+void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior);
 
 double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed);
 

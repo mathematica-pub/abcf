@@ -246,6 +246,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 include_random_effects=FALSE, batch_size = 100,
                 block_v_rho=FALSE, block_batch_size=100,
                 block_b0_b1=FALSE,
+                sigu_hyperprior = NULL, sigv_hyperprior = NULL,
                 hardcode_sigma_u=FALSE, hardcode_sigma_v=FALSE, hardcode_rho=FALSE,
                 simplified_return=FALSE, verbose=1
 ) {
@@ -328,6 +329,18 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
     lambda = (sighat*sighat*qchi)/nu
   }
 
+  if (is.null(sigu_hyperprior)) {
+    sigu_hyperprior <- 1
+  }else {
+    sigu_hyperprior <- sigu_hyperprior/sdy
+  }
+
+  if (is.null(sigv_hyperprior)) {
+    sigv_hyperprior <- 1
+  } else {
+    sigv_hyperprior <- sigv_hyperprior/sdy
+  }
+
   dir = tempdir()
 
   perm = order(z, decreasing=TRUE)
@@ -372,6 +385,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                                  block_v_rho=block_v_rho,
                                  block_batch_size=block_batch_size,
                                  block_b0_b1=block_b0_b1,
+                                 sigu_hyperprior=sigu_hyperprior,
+                                 sigv_hyperprior=sigv_hyperprior,
                                  hardcode_sigma_u=hardcode_sigma_u,
                                  hardcode_sigma_v=hardcode_sigma_v,
                                  hardcode_rho=hardcode_rho)
