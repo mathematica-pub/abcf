@@ -232,11 +232,11 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 n_threads = max((RcppParallel::defaultNumThreads()-2)/n_cores,1), #max number of threads, minus a arbitrary holdback, over the number of cores
                 nburn, nsim, nthin = 1, update_interval = 100,
                 ntree_control = 200,
-                sd_control = 2*sd(y),
+                sd_control = NULL,      #Still defaults to 2*sdy, but we do that latter so we can account for weights
                 base_control = 0.95,
                 power_control = 2,
                 ntree_moderate = 50,
-                sd_moderate = sd(y),
+                sd_moderate = NULL,     #Still defaults to sdy, but we do that latter so we can account for weights
                 base_moderate = 0.25,
                 power_moderate = 3,
                 save_tree_directory = '.',
@@ -329,24 +329,35 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
     lambda = (sighat*sighat*qchi)/nu
   }
 
+  #If prior sds are not given, default them to scale off of the weighted sdy
+  if (is.null(sd_control)) {
+    con_sd <- 2
+  } else {
+    con_sd = sd_control/sdy
+  }
+
+  if (is.null(sd_moderate)) {
+    mod_sd <- 1/ifelse(use_tauscale,0.674,1)
+  } else {
+    mod_sd = sd_moderate/sdy/ifelse(use_tauscale,0.674,1)
+  }
+
+  #If hyperprior sds aren't given, scale them off of the prior sds
   if (is.null(sigu_hyperprior)) {
-    sigu_hyperprior <- 1
-  }else {
+    sigu_hyperprior <- con_sd/3
+  } else {
     sigu_hyperprior <- sigu_hyperprior/sdy
   }
 
   if (is.null(sigv_hyperprior)) {
-    sigv_hyperprior <- 1
+    sigv_hyperprior <- mod_sd/3
   } else {
-    sigv_hyperprior <- sigv_hyperprior/sdy
+    sigv_hyperprior <- sigv_hyperprior/sdy/ifelse(use_tauscale,0.674,1)
   }
 
   dir = tempdir()
 
   perm = order(z, decreasing=TRUE)
-
-  con_sd = ifelse(abs(2*sdy - sd_control)<1e-6, 2, sd_control/sdy)
-  mod_sd = ifelse(abs(sdy - sd_moderate)<1e-6, 1, sd_moderate/sdy)/ifelse(use_tauscale,0.674,1) # if HN make sd_moderate the prior median
 
   RcppParallel::setThreadOptions(numThreads=n_threads)
 
