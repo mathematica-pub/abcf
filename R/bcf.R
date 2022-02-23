@@ -119,6 +119,8 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
 #' @param sd_moderate SD(tau(x)) marginally at any covariate value (or its prior median if use_tauscale=TRUE)
 #' @param base_moderate Base for tree prior on tau(x) trees (see details)
 #' @param power_moderate Power for the tree prior on tau(x) trees (see details)
+#' @param sigu_hyperprior Prior median for SD of idosyncratic u terms
+#' @param sigv_hyperprior Prior median for SD of idosyncratic v terms
 #' @param save_tree_directory Specify where trees should be saved. Keep track of this for predict(). Defaults to working directory. Setting to NULL skips writing of trees.
 #' @param log_file file where BCF should save its logs when running multiple chains in parallel. This file is not written too when only running one chain.
 #' @param nu Degrees of freedom in the chisq prior on \eqn{sigma^2}
@@ -346,13 +348,15 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   if (is.null(sigu_hyperprior)) {
     sigu_hyperprior <- con_sd/3
   } else {
-    sigu_hyperprior <- sigu_hyperprior/sdy
+    #user-entered values will should be prior medians, so convert to scale using 0.674
+    sigu_hyperprior <- sigu_hyperprior/sdy/0.674
   }
 
   if (is.null(sigv_hyperprior)) {
     sigv_hyperprior <- mod_sd/3
   } else {
-    sigv_hyperprior <- sigv_hyperprior/sdy/ifelse(use_tauscale,0.674,1)
+    #user-entered values will should be prior medians, so convert to scale using 0.674
+    sigv_hyperprior <- sigv_hyperprior/sdy/0.674
   }
 
   dir = tempdir()
