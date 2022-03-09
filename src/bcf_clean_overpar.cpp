@@ -46,7 +46,8 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   bool block_v_rho=false, int block_batch_size = 100,
                   bool block_b0_b1=false,
                   double sigu_hyperprior=1.0, double sigv_hyperprior=1.0,
-                  bool hardcode_sigma_u=false, bool hardcode_sigma_v=false, bool hardcode_rho=false)
+                  bool hardcode_sigma_u=false, bool hardcode_sigma_v=false, bool hardcode_rho=false,
+                  double hardcode_sigma_u_val=0.0, double hardcode_sigma_v_val=0.0, double hardcode_rho_val=0.0)
 {
 
   std::ofstream treef_con;
@@ -235,13 +236,13 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     initialize_sigmas(sigma_y, sigma_u, sigma_v, rho, sigu_hyperprior, sigv_hyperprior, gen);
     // sigmas can't be hardcoded to 0 or u/v's Sigma isn't invertible
     if(hardcode_sigma_u) {
-      sigma_u = 0.00000001;
+      sigma_u = std::max(0.00000001, hardcode_sigma_u_val);
     }
     if(hardcode_sigma_v) {
-      sigma_v = 0.00000001;
+      sigma_v = std::max(0.00000001, hardcode_sigma_v_val);
     }
     if(hardcode_rho) {
-      rho = 0;
+      rho = hardcode_rho_val;
     }
   }
 

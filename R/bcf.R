@@ -250,6 +250,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 block_b0_b1=FALSE,
                 sigu_hyperprior = NULL, sigv_hyperprior = NULL,
                 hardcode_sigma_u=FALSE, hardcode_sigma_v=FALSE, hardcode_rho=FALSE,
+                hardcode_sigma_u_val=0, hardcode_sigma_v_val=0, hardcode_rho_val=0,
                 simplified_return=FALSE, verbose=1
 ) {
 
@@ -344,6 +345,11 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
     mod_sd = sd_moderate/sdy/ifelse(use_tauscale,0.674,1)
   }
 
+  #If sig u or v are hardcoded, convert that to sd scale
+  #Rho has it's own scale so leave as-is
+  hardcode_sigma_u_val <- hardcode_sigma_u_val/sdy
+  hardcode_sigma_v_val <- hardcode_sigma_v_val/sdy
+
   #If hyperprior sds aren't given, scale them off of the prior sds
   if (is.null(sigu_hyperprior)) {
     sigu_hyperprior <- con_sd/3
@@ -404,7 +410,10 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                                  sigv_hyperprior=sigv_hyperprior,
                                  hardcode_sigma_u=hardcode_sigma_u,
                                  hardcode_sigma_v=hardcode_sigma_v,
-                                 hardcode_rho=hardcode_rho)
+                                 hardcode_rho=hardcode_rho,
+                                 hardcode_sigma_u_val=hardcode_sigma_u_val,
+                                 hardcode_sigma_v_val=hardcode_sigma_v_val,
+                                 hardcode_rho_val=hardcode_rho_val)
 
     cat("bcfoverparRcppClean returned to R\n")
 
