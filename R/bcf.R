@@ -302,6 +302,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   if(nthin>nsim+1) stop("nthin must be < nsim")
   if(nburn<1000) warning("A low (<1000) value for nburn was supplied")
   if(nsim*nburn<1000) warning("A low (<1000) value for total iterations after burn-in was supplied")
+  if ((hardcode_rho != hardcode_sigma_v) & block_v_rho) stop('One of rho and sigma_v is hardcoded, but ablock update was specified')
 
   ### TODO range check on parameters
 

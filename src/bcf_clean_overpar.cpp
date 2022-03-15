@@ -500,7 +500,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       if (!block_v_rho && !hardcode_rho) {
         update_rho(ginfo, allfit);
       }
-      if (block_v_rho) {
+      if (block_v_rho && !hardcode_sigma_v && !hardcode_rho) {
         update_sigma_v_rho(ginfo, allfit, sigv_hyperprior);
         // Update the tracker with transformations
         ginfo.xform_sigma_v[iIter] = log(ginfo.sigma_v);
