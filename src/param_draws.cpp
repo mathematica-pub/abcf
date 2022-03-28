@@ -405,8 +405,8 @@ void update_rho(ginfo& gi, double* allfit, bool rho_prior_beta, double rho_beta_
 
   double log_prior_current, log_prior_proposed;
   if (rho_prior_beta) {
-    log_prior_current  = (rho_beta_a - 1) + (rho_beta_b - 1)*log(1 - gi.rho);
-    log_prior_proposed = (rho_beta_a - 1) + (rho_beta_b - 1)*log(1 - proposal);
+    log_prior_current  = (rho_beta_a - 1)*log(gi.rho + 1)   + (rho_beta_b - 1)*log(1 - gi.rho);
+    log_prior_proposed = (rho_beta_a - 1)*log(proposal + 1) + (rho_beta_b - 1)*log(1 - proposal);
   } else {
     log_prior_current  = log(1 + cos(M_PI*gi.rho));
     log_prior_proposed = log(1 + cos(M_PI*proposal));
@@ -435,8 +435,8 @@ void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior, bool rho_p
   double log_prior_current  = - 0.5*gi.sigma_v  *gi.sigma_v / (hyperprior * hyperprior);
   double log_prior_proposed = - 0.5*proposal(0)*proposal(0) / (hyperprior * hyperprior);
   if (rho_prior_beta) {
-    log_prior_current  += (rho_beta_a - 1) + (rho_beta_b - 1)*log(1 - gi.rho);
-    log_prior_proposed += (rho_beta_a - 1) + (rho_beta_b - 1)*log(1 - proposal(1));
+    log_prior_current  += (rho_beta_a - 1)*log(gi.rho + 1)      + (rho_beta_b - 1)*log(1 - gi.rho);
+    log_prior_proposed += (rho_beta_a - 1)*log(proposal(1) + 1) + (rho_beta_b - 1)*log(1 - proposal(1));
   } else {
     log_prior_current  += log(1 + cos(M_PI*gi.rho));
     log_prior_proposed += log(1 + cos(M_PI*proposal(1)));
