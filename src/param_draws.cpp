@@ -274,11 +274,17 @@ void update_bscale_block(double& bscale0, double& bscale1,
     update_pi(wi, gi.logger, verbose);
 }
 
-void initialize_sigmas(double& sigma_y, double& sigma_u, double& sigma_v, double& rho, double sigu_hyperprior, double sigv_hyperprior, RNG& gen) {
+void initialize_sigmas(double& sigma_y, double& sigma_u, double& sigma_v, double& rho, 
+                        double sigu_hyperprior, double sigv_hyperprior, 
+                        bool rho_beta_prior, double rho_beta_a, double rho_beta_b, RNG& gen) {
   // sigma_y is not changed
   sigma_u = fabs(gen.normal(0., sigu_hyperprior));
   sigma_v = fabs(gen.normal(0., sigv_hyperprior));
-  rho = rc_invcdf(gen.uniform(), 0., 1.);
+  if (rho_beta_prior) {
+    rho = 2*(gen.beta(rho_beta_a, rho_beta_b)-0.5);
+  } else {
+    rho = rc_invcdf(gen.uniform(), 0., 1.);
+  }
 }
 
 double propose_sigma(double sigma_current, double ls_proposal, RNG& gen) {
@@ -392,13 +398,19 @@ void update_sigma_v(ginfo& gi, double* allfit, double hyperprior) {
   }
 }
 
-void update_rho(ginfo& gi, double* allfit) {
+void update_rho(ginfo& gi, double* allfit, bool rho_prior_beta, double rho_beta_a, double rho_beta_b) {
   // Proposal is an adaptive MH draw, scaled by ls_rho
   double proposal = propose_rho(gi.rho, gi.ls_rho, gi.gen);
   calculate_sigma2_i(gi, gi.sigma_y, gi.sigma_u, gi.sigma_v, proposal, gi.prop_sig2);
 
-  double log_prior_current  = log(1 + cos(M_PI*gi.rho));
-  double log_prior_proposed = log(1 + cos(M_PI*proposal));
+  double log_prior_current, log_prior_proposed;
+  if (rho_prior_beta) {
+    log_prior_current  = (rho_beta_a - 1) + (rho_beta_b - 1)*log(1 - gi.rho);
+    log_prior_proposed = (rho_beta_a - 1) + (rho_beta_b - 1)*log(1 - proposal);
+  } else {
+    log_prior_current  = log(1 + cos(M_PI*gi.rho));
+    log_prior_proposed = log(1 + cos(M_PI*proposal));
+  } 
   double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed);
   double log_ratio = lp_diff + log((proposal + 1) * (1 - proposal) / ((gi.rho + 1) * (1 - gi.rho)));
 
@@ -416,12 +428,20 @@ void update_rho(ginfo& gi, double* allfit) {
   }
 }
 
-void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior) {
+void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior, bool rho_prior_beta, double rho_beta_a, double rho_beta_b) {
   arma::vec proposal = propose_sigma_v_rho(gi.sigma_v, gi.rho, gi.xcov_sigma_v_rho, gi.gen);
   calculate_sigma2_i(gi, gi.sigma_y, gi.sigma_u, proposal(0), proposal(1), gi.prop_sig2);
 
-  double log_prior_current  = log(1 + cos(M_PI*gi.rho))      - 0.5*gi.sigma_v  *gi.sigma_v / (hyperprior * hyperprior);
-  double log_prior_proposed = log(1 + cos(M_PI*proposal(1))) - 0.5*proposal(0)*proposal(0) / (hyperprior * hyperprior);
+  double log_prior_current  = - 0.5*gi.sigma_v  *gi.sigma_v / (hyperprior * hyperprior);
+  double log_prior_proposed = - 0.5*proposal(0)*proposal(0) / (hyperprior * hyperprior);
+  if (rho_prior_beta) {
+    log_prior_current  += (rho_beta_a - 1) + (rho_beta_b - 1)*log(1 - gi.rho);
+    log_prior_proposed += (rho_beta_a - 1) + (rho_beta_b - 1)*log(1 - proposal(1));
+  } else {
+    log_prior_current  += log(1 + cos(M_PI*gi.rho));
+    log_prior_proposed += log(1 + cos(M_PI*proposal(1)));
+  }
+  
   double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed);
   double log_ratio_jacobian = log(fabs(proposal(0)*(proposal(1)*proposal(1) - 1))) - log(fabs(gi.sigma_v*(gi.rho*gi.rho - 1)));
   double log_ratio = lp_diff + log_ratio_jacobian;

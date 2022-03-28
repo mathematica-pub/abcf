@@ -136,6 +136,9 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
 #' @param batch_size Batch size to use for adapative Metropolis Hastings sampling (random effects model only)
 #' @param block_b0_b1 Whether to constrain b0 and b1. Better mixing at the expense of assuming equal variance across t/c
 #' @param acceptance_target Target acceptance rate for adaptive MH
+#' @param rho_beta_prior Whether to use a beta prior for rho. If not uses raised cosine with mu=0, s=1
+#' @param rho_beta_a first shape parameter for rho beta prior
+#' @param rho_beta_b second shape parameter for rho beta prior
 #' @param verbose Integer, whether to print log of MCMC iterations, defaults to 1 - basic logging of iteration progress.
 #' Setting to 0 disables logging, while setting to 2 enables logging of detailed statistics each iteration,
 #' and setting to 3 enables logging of individual trees.
@@ -251,6 +254,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 sigu_hyperprior = NULL, sigv_hyperprior = NULL,
                 hardcode_sigma_u=FALSE, hardcode_sigma_v=FALSE, hardcode_rho=FALSE,
                 hardcode_sigma_u_val=0, hardcode_sigma_v_val=0, hardcode_rho_val=0,
+                rho_beta_prior=FALSE, rho_beta_a=2, rho_beta_b=2,
                 simplified_return=FALSE, verbose=1
 ) {
 
@@ -414,7 +418,10 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                                  hardcode_rho=hardcode_rho,
                                  hardcode_sigma_u_val=hardcode_sigma_u_val,
                                  hardcode_sigma_v_val=hardcode_sigma_v_val,
-                                 hardcode_rho_val=hardcode_rho_val)
+                                 hardcode_rho_val=hardcode_rho_val,
+                                 rho_beta_prior=rho_beta_prior,
+                                 rho_beta_a=rho_beta_a,
+                                 rho_beta_b=rho_beta_b)
 
     cat("bcfoverparRcppClean returned to R\n")
 

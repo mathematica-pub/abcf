@@ -12,8 +12,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // bcfoverparRcppClean
-List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_, NumericVector x_con_, NumericVector x_mod_, List x_con_info_list, List x_mod_info_list, int burn, int nd, int thin, int ntree_mod, int ntree_con, double lambda, double nu, double con_sd, double mod_sd, double con_alpha, double con_beta, double mod_alpha, double mod_beta, CharacterVector treef_con_name_, CharacterVector treef_mod_name_, int status_interval, bool RJ, bool use_mscale, bool use_bscale, bool b_half_normal, bool randeff, int batch_size, double acceptance_target, double trt_init, int verbose, bool block_v_rho, int block_batch_size, bool block_b0_b1, double sigu_hyperprior, double sigv_hyperprior, bool hardcode_sigma_u, bool hardcode_sigma_v, bool hardcode_rho, double hardcode_sigma_u_val, double hardcode_sigma_v_val, double hardcode_rho_val);
-RcppExport SEXP _bcf_bcfoverparRcppClean(SEXP y_SEXP, SEXP z_SEXP, SEXP w_SEXP, SEXP x_con_SEXP, SEXP x_mod_SEXP, SEXP x_con_info_listSEXP, SEXP x_mod_info_listSEXP, SEXP burnSEXP, SEXP ndSEXP, SEXP thinSEXP, SEXP ntree_modSEXP, SEXP ntree_conSEXP, SEXP lambdaSEXP, SEXP nuSEXP, SEXP con_sdSEXP, SEXP mod_sdSEXP, SEXP con_alphaSEXP, SEXP con_betaSEXP, SEXP mod_alphaSEXP, SEXP mod_betaSEXP, SEXP treef_con_name_SEXP, SEXP treef_mod_name_SEXP, SEXP status_intervalSEXP, SEXP RJSEXP, SEXP use_mscaleSEXP, SEXP use_bscaleSEXP, SEXP b_half_normalSEXP, SEXP randeffSEXP, SEXP batch_sizeSEXP, SEXP acceptance_targetSEXP, SEXP trt_initSEXP, SEXP verboseSEXP, SEXP block_v_rhoSEXP, SEXP block_batch_sizeSEXP, SEXP block_b0_b1SEXP, SEXP sigu_hyperpriorSEXP, SEXP sigv_hyperpriorSEXP, SEXP hardcode_sigma_uSEXP, SEXP hardcode_sigma_vSEXP, SEXP hardcode_rhoSEXP, SEXP hardcode_sigma_u_valSEXP, SEXP hardcode_sigma_v_valSEXP, SEXP hardcode_rho_valSEXP) {
+List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_, NumericVector x_con_, NumericVector x_mod_, List x_con_info_list, List x_mod_info_list, int burn, int nd, int thin, int ntree_mod, int ntree_con, double lambda, double nu, double con_sd, double mod_sd, double con_alpha, double con_beta, double mod_alpha, double mod_beta, CharacterVector treef_con_name_, CharacterVector treef_mod_name_, int status_interval, bool RJ, bool use_mscale, bool use_bscale, bool b_half_normal, bool randeff, int batch_size, double acceptance_target, double trt_init, int verbose, bool block_v_rho, int block_batch_size, bool block_b0_b1, double sigu_hyperprior, double sigv_hyperprior, bool hardcode_sigma_u, bool hardcode_sigma_v, bool hardcode_rho, double hardcode_sigma_u_val, double hardcode_sigma_v_val, double hardcode_rho_val, bool rho_beta_prior, double rho_beta_a, double rho_beta_b);
+RcppExport SEXP _bcf_bcfoverparRcppClean(SEXP y_SEXP, SEXP z_SEXP, SEXP w_SEXP, SEXP x_con_SEXP, SEXP x_mod_SEXP, SEXP x_con_info_listSEXP, SEXP x_mod_info_listSEXP, SEXP burnSEXP, SEXP ndSEXP, SEXP thinSEXP, SEXP ntree_modSEXP, SEXP ntree_conSEXP, SEXP lambdaSEXP, SEXP nuSEXP, SEXP con_sdSEXP, SEXP mod_sdSEXP, SEXP con_alphaSEXP, SEXP con_betaSEXP, SEXP mod_alphaSEXP, SEXP mod_betaSEXP, SEXP treef_con_name_SEXP, SEXP treef_mod_name_SEXP, SEXP status_intervalSEXP, SEXP RJSEXP, SEXP use_mscaleSEXP, SEXP use_bscaleSEXP, SEXP b_half_normalSEXP, SEXP randeffSEXP, SEXP batch_sizeSEXP, SEXP acceptance_targetSEXP, SEXP trt_initSEXP, SEXP verboseSEXP, SEXP block_v_rhoSEXP, SEXP block_batch_sizeSEXP, SEXP block_b0_b1SEXP, SEXP sigu_hyperpriorSEXP, SEXP sigv_hyperpriorSEXP, SEXP hardcode_sigma_uSEXP, SEXP hardcode_sigma_vSEXP, SEXP hardcode_rhoSEXP, SEXP hardcode_sigma_u_valSEXP, SEXP hardcode_sigma_v_valSEXP, SEXP hardcode_rho_valSEXP, SEXP rho_beta_priorSEXP, SEXP rho_beta_aSEXP, SEXP rho_beta_bSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -60,7 +60,10 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type hardcode_sigma_u_val(hardcode_sigma_u_valSEXP);
     Rcpp::traits::input_parameter< double >::type hardcode_sigma_v_val(hardcode_sigma_v_valSEXP);
     Rcpp::traits::input_parameter< double >::type hardcode_rho_val(hardcode_rho_valSEXP);
-    rcpp_result_gen = Rcpp::wrap(bcfoverparRcppClean(y_, z_, w_, x_con_, x_mod_, x_con_info_list, x_mod_info_list, burn, nd, thin, ntree_mod, ntree_con, lambda, nu, con_sd, mod_sd, con_alpha, con_beta, mod_alpha, mod_beta, treef_con_name_, treef_mod_name_, status_interval, RJ, use_mscale, use_bscale, b_half_normal, randeff, batch_size, acceptance_target, trt_init, verbose, block_v_rho, block_batch_size, block_b0_b1, sigu_hyperprior, sigv_hyperprior, hardcode_sigma_u, hardcode_sigma_v, hardcode_rho, hardcode_sigma_u_val, hardcode_sigma_v_val, hardcode_rho_val));
+    Rcpp::traits::input_parameter< bool >::type rho_beta_prior(rho_beta_priorSEXP);
+    Rcpp::traits::input_parameter< double >::type rho_beta_a(rho_beta_aSEXP);
+    Rcpp::traits::input_parameter< double >::type rho_beta_b(rho_beta_bSEXP);
+    rcpp_result_gen = Rcpp::wrap(bcfoverparRcppClean(y_, z_, w_, x_con_, x_mod_, x_con_info_list, x_mod_info_list, burn, nd, thin, ntree_mod, ntree_con, lambda, nu, con_sd, mod_sd, con_alpha, con_beta, mod_alpha, mod_beta, treef_con_name_, treef_mod_name_, status_interval, RJ, use_mscale, use_bscale, b_half_normal, randeff, batch_size, acceptance_target, trt_init, verbose, block_v_rho, block_batch_size, block_b0_b1, sigu_hyperprior, sigv_hyperprior, hardcode_sigma_u, hardcode_sigma_v, hardcode_rho, hardcode_sigma_u_val, hardcode_sigma_v_val, hardcode_rho_val, rho_beta_prior, rho_beta_a, rho_beta_b));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -68,7 +71,7 @@ END_RCPP
 RcppExport SEXP _rcpp_module_boot_TreeSamples();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_bcf_bcfoverparRcppClean", (DL_FUNC) &_bcf_bcfoverparRcppClean, 43},
+    {"_bcf_bcfoverparRcppClean", (DL_FUNC) &_bcf_bcfoverparRcppClean, 46},
     {"_rcpp_module_boot_TreeSamples", (DL_FUNC) &_rcpp_module_boot_TreeSamples, 0},
     {NULL, NULL, 0}
 };
