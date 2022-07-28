@@ -45,10 +45,10 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   double trt_init = 1.0, int verbose=1, 
                   bool block_v_rho=false, int block_batch_size = 100,
                   bool block_b0_b1=false,
-                  double sigu_hyperprior=1.0, double sigv_hyperprior=1.0,
+                  double sigu_hyperprior=1.0, double ate_prior_sd=1.0,
                   bool hardcode_sigma_u=false, bool hardcode_sigma_v=false, bool hardcode_rho=false,
                   double hardcode_sigma_u_val=0.0, double hardcode_sigma_v_val=0.0, double hardcode_rho_val=0.0,
-                  bool rho_beta_prior=false, double rho_beta_a = 2.0, double rho_beta_b = 2.0)
+                  bool rho_beta_prior=true, double rho_beta_a = 2.0, double rho_beta_b = 2.0)
 {
 
   std::ofstream treef_con;
@@ -234,7 +234,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   double rho = 0;
   // For others draw from prior if we're doing random effects
   if (randeff) {
-    initialize_sigmas(sigma_y, sigma_u, sigma_v, rho, sigu_hyperprior, sigv_hyperprior, rho_beta_prior, rho_beta_a, rho_beta_b, gen);
+    initialize_sigmas(sigma_y, sigma_u, sigma_v, rho, sigu_hyperprior, ate_prior_sd, rho_beta_prior, rho_beta_a, rho_beta_b, gen);
     // sigmas can't be hardcoded to 0 or u/v's Sigma isn't invertible
     if(hardcode_sigma_u) {
       sigma_u = std::max(0.00000001, hardcode_sigma_u_val);
@@ -496,13 +496,13 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
         update_sigma_u(ginfo, allfit, sigu_hyperprior);
       }
       if (!block_v_rho && !hardcode_sigma_v) {
-        update_sigma_v(ginfo, allfit, sigv_hyperprior);
+        update_sigma_v(ginfo, allfit, ate_prior_sd*ginfo.sigma_u);
       }
       if (!block_v_rho && !hardcode_rho) {
         update_rho(ginfo, allfit, rho_beta_prior, rho_beta_a, rho_beta_b);
       }
       if (block_v_rho && !hardcode_sigma_v && !hardcode_rho) {
-        update_sigma_v_rho(ginfo, allfit, sigv_hyperprior, rho_beta_prior, rho_beta_a, rho_beta_b);
+        update_sigma_v_rho(ginfo, allfit, ate_prior_sd*ginfo.sigma_u, rho_beta_prior, rho_beta_a, rho_beta_b);
         // Update the tracker with transformations
         ginfo.xform_sigma_v[iIter] = log(ginfo.sigma_v);
         ginfo.xform_rho[iIter] = log(ginfo.rho + 1) - log(1 - ginfo.rho);

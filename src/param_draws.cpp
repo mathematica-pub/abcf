@@ -275,11 +275,11 @@ void update_bscale_block(double& bscale0, double& bscale1,
 }
 
 void initialize_sigmas(double& sigma_y, double& sigma_u, double& sigma_v, double& rho, 
-                        double sigu_hyperprior, double sigv_hyperprior, 
+                        double sigu_hyperprior, double ate_prior_sd, 
                         bool rho_beta_prior, double rho_beta_a, double rho_beta_b, RNG& gen) {
   // sigma_y is not changed
   sigma_u = fabs(gen.normal(0., sigu_hyperprior));
-  sigma_v = fabs(gen.normal(0., sigv_hyperprior));
+  sigma_v = fabs(gen.normal(0., sigma_u * ate_prior_sd));
   if (rho_beta_prior) {
     rho = 2*(gen.beta(rho_beta_a, rho_beta_b)-0.5);
   } else {

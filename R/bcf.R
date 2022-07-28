@@ -202,7 +202,7 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
 #' @param base_moderate Base for tree prior on tau(x) trees (see details)
 #' @param power_moderate Power for the tree prior on tau(x) trees (see details)
 #' @param sigu_hyperprior Prior median for SD of idosyncratic u terms
-#' @param sigv_hyperprior Prior median for SD of idosyncratic v terms
+#' @param ate_prior_sd Prior SD of the treatment effect, used to form hyperprior for idiosyncratic v terms
 #' @param save_tree_directory Specify where trees should be saved. Keep track of this for predict(). Defaults to working directory. Setting to NULL skips writing of trees.
 #' @param log_file file where BCF should save its logs when running multiple chains in parallel. This file is not written too when only running one chain.
 #' @param nu Degrees of freedom in the chisq prior on \eqn{sigma^2}
@@ -333,10 +333,10 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 include_random_effects=FALSE, batch_size = 100,
                 block_v_rho=FALSE, block_batch_size=100,
                 block_b0_b1=FALSE,
-                sigu_hyperprior = NULL, sigv_hyperprior = NULL,
+                sigu_hyperprior = NULL, ate_prior_sd = NULL,
                 hardcode_sigma_u=FALSE, hardcode_sigma_v=FALSE, hardcode_rho=FALSE,
                 hardcode_sigma_u_val=0, hardcode_sigma_v_val=0, hardcode_rho_val=0,
-                rho_beta_prior=FALSE, rho_beta_a=2, rho_beta_b=2,
+                rho_beta_prior=TRUE, rho_beta_a=2, rho_beta_b=2,
                 simplified_return=FALSE, verbose=1
 ) {
 
@@ -437,7 +437,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   hardcode_sigma_u_val <- hardcode_sigma_u_val/sdy
   hardcode_sigma_v_val <- hardcode_sigma_v_val/sdy
 
-  #If hyperprior sds aren't given, scale them off of the prior sds
+  #If hyperprior sd isn't given, scale them off of the prior sds
   if (is.null(sigu_hyperprior)) {
     sigu_hyperprior <- con_sd/3
   } else {
@@ -445,11 +445,10 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
     sigu_hyperprior <- sigu_hyperprior/sdy/0.674
   }
 
-  if (is.null(sigv_hyperprior)) {
-    sigv_hyperprior <- mod_sd/3
+  if (include_random_effects && is.null(ate_prior_sd)) {
+    stop('a prior SD for the ATE (ate_prior_sd) is required for iBCF')
   } else {
-    #user-entered values will should be prior medians, so convert to scale using 0.674
-    sigv_hyperprior <- sigv_hyperprior/sdy/0.674
+    ate_prior_sd <- ate_prior_sd/sdy
   }
 
   dir = tempdir()
@@ -494,7 +493,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                                  block_batch_size=block_batch_size,
                                  block_b0_b1=block_b0_b1,
                                  sigu_hyperprior=sigu_hyperprior,
-                                 sigv_hyperprior=sigv_hyperprior,
+                                 ate_prior_sd=ate_prior_sd,
                                  hardcode_sigma_u=hardcode_sigma_u,
                                  hardcode_sigma_v=hardcode_sigma_v,
                                  hardcode_rho=hardcode_rho,

@@ -86,7 +86,7 @@ void update_bscale_block(double& bscale0, double& bscale1,
                         ginfo& gi, winfo& wi, bool verbose);
 
 void initialize_sigmas(double& sigma_y, double& sigma_u, double& sigma_v, double& rho, 
-                        double sigu_hyperprior, double sigv_hyperprior, 
+                        double sigu_hyperprior, double ate_prior_sd, 
                         bool rho_beta_prior, double rho_beta_a, double rho_beta_b, RNG& gen);
 
 double propose_sigma(double sigma_current, double ls_proposal, RNG& gen);
