@@ -447,8 +447,10 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
 
   if (include_random_effects && is.null(ate_prior_sd)) {
     stop('a prior SD for the ATE (ate_prior_sd) is required for iBCF')
-  } else {
+  } else if (include_random_effects) {
     ate_prior_sd <- ate_prior_sd/sdy
+  } else {
+    ate_prior_sd <- 1
   }
 
   dir = tempdir()
