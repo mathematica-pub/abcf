@@ -415,7 +415,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   if (use_tauscale & !identical(x_control, x_moderate)) {
       warning("Different covariate matrices supplied to x_control and x_moderate, but tau_scale is set to TRUE. When use_tauscale is TRUE, all covariates in x_moderate can still affect mu (but covariates in x_control cannot affect tau)")
   }
-  if ((abcf|ibcf) & is.null(w)) {
+  if ((abcf|ibcf) & length(unique(w))==1) {
       warning('aBCF and iBCF models are not identified without weights')
   }
 
