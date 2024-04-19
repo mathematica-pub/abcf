@@ -14,17 +14,17 @@ bcf(
   random_seed = sample.int(.Machine$integer.max, 1),
   n_chains = 4,
   n_cores = n_chains,
-  n_threads = max((RcppParallel::defaultNumThreads() - 2)/n_cores, 1),
+  n_threads = 1,
   nburn,
   nsim,
   nthin = 1,
   update_interval = 100,
   ntree_control = 200,
-  sd_control = 2 * sd(y),
+  sd_control = NULL,
   base_control = 0.95,
   power_control = 2,
   ntree_moderate = 50,
-  sd_moderate = sd(y),
+  sd_moderate = NULL,
   base_moderate = 0.25,
   power_moderate = 3,
   save_tree_directory = ".",
@@ -37,14 +37,14 @@ bcf(
   include_pi = "control",
   use_muscale = TRUE,
   use_tauscale = TRUE,
-  include_random_effects = FALSE,
+  simplified_return = FALSE,
+  verbose = 1,
+  block_b0_b1 = FALSE,
+  abcf = FALSE,
+  sigu_hyperprior = NULL,
   batch_size = 100,
-  block_v_rho = FALSE,
-  block_batch_size = 100,
-  hardcode_sigma_u = FALSE,
-  hardcode_sigma_v = FALSE,
-  hardcode_rho = FALSE,
-  verbose = 1
+  ibcf = FALSE,
+  ate_prior_sd = NULL
 )
 }
 \arguments{
@@ -66,7 +66,7 @@ bcf(
 
 \item{n_cores}{An optional integer of the number of cores to run your MCMC chains on}
 
-\item{n_threads}{An optional integer of the number of threads to parallelize within chain bcf operations on}
+\item{n_threads}{An optional integer of the number of threads to parallelize within chain bcf operations on. Values greater than 1 tend to reduce performance, unless you have truly massive within-chain, within-iteration calculations, like a ginormous dataset}
 
 \item{nburn}{Number of burn-in MCMC iterations}
 
@@ -94,7 +94,7 @@ bcf(
 
 \item{save_tree_directory}{Specify where trees should be saved. Keep track of this for predict(). Defaults to working directory. Setting to NULL skips writing of trees.}
 
-\item{log_file}{file where BCF should save its logs when running multiple chains in parallel. This file is not written too when only running one chain.}
+\item{log_file}{file where BCF should save its logs when running multiple chains in parallel. This file is not written to when only running one chain.}
 
 \item{nu}{Degrees of freedom in the chisq prior on \eqn{sigma^2}}
 
@@ -112,15 +112,24 @@ or "both" are HIGHLY recommended with observational data.}
 
 \item{use_tauscale}{Use a half-Normal prior on the scale of tau.}
 
-\item{include_random_effects}{Use individual-level random effects u and v.}
-
-\item{batch_size}{Batch size to use for adapative Metropolis Hastings sampling (random effects model only)}
+\item{simplified_return}{Whether to return just the raw_chains object (which contains all relevant information), or to pre-calculate other output for ease of use (e.g. fit$tau).
+All output can be recreated by calling bcf:::.get_components_from_chains(fit$raw_chains)}
 
 \item{verbose}{Integer, whether to print log of MCMC iterations, defaults to 1 - basic logging of iteration progress.
 Setting to 0 disables logging, while setting to 2 enables logging of detailed statistics each iteration,
 and setting to 3 enables logging of individual trees.}
 
-\item{acceptance_target}{Target acceptance rate for adaptive MH}
+\item{block_b0_b1}{Whether to constrain b0 and b1 such that b0 = -b1. Better mixing at the expense of assuming equal variance across treatment and control}
+
+\item{abcf}{Boolean; whether to estimate the aggregate BCF (aBCF) model, including individual random effects}
+
+\item{sigu_hyperprior}{Prior median for prior SD of idiosyncratic u terms in aBCF and iBCF}
+
+\item{batch_size}{aBCF and iBCF only. Size of batches for adaptive Metropolis Hastings sampling of sigma_u (aBCF) as well as sigma_v/rho (iBCF only)}
+
+\item{ibcf}{Boolean; whether to estimate the individualized BCF (iBCF) model, including individual random effects and random treatment effects.}
+
+\item{ate_prior_sd}{Prior SD of the treatment effect, used to form a hyperprior for the SD of idiosyncratic treatment effects}
 }
 \value{
 A fitted bcf object that is a list with elements

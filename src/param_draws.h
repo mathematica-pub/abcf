@@ -85,9 +85,8 @@ void update_bscale_block(double& bscale0, double& bscale1,
                         double* allfit_con, double* allfit_mod,
                         ginfo& gi, winfo& wi, bool verbose);
 
-void initialize_sigmas(double& sigma_y, double& sigma_u, double& sigma_v, double& rho, 
-                        double sigu_hyperprior, double ate_prior_sd, 
-                        bool rho_beta_prior, double rho_beta_a, double rho_beta_b, RNG& gen);
+void initialize_sigmas(bool ibcf, double& sigma_y, double& sigma_u, double& sigma_v, double& rho, 
+                        double sigu_hyperprior, double ate_prior_sd, RNG& gen);
 
 double propose_sigma(double sigma_current, double ls_proposal, RNG& gen);
 
@@ -103,15 +102,17 @@ void update_sigma_u(ginfo& gi, double* allfit, double hyperprior);
 
 void update_sigma_v(ginfo& gi, double* allfit, double hyperprior);
 
-void update_rho(ginfo& gi, double* allfit, bool rho_prior_beta, double rho_beta_a, double rho_beta_b);
+void update_rho(ginfo& gi, double* allfit);
 
-void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior, bool rho_prior_beta, double rho_beta_a, double rho_beta_b);
+void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior);
 
 double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed);
 
 void calculate_sigma2_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_v, double rho, double* return_loc);
 
 void draw_uv(double* u, double* v, double* allfit, ginfo& gi);
+
+void draw_u(double* u, double* allfit, ginfo& gi);
 
 void update_mh_cov(arma::mat& cov_loc, arma::vec par1, arma::vec par2);
 

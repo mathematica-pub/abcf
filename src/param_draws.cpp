@@ -274,16 +274,13 @@ void update_bscale_block(double& bscale0, double& bscale1,
     update_pi(wi, gi.logger, verbose);
 }
 
-void initialize_sigmas(double& sigma_y, double& sigma_u, double& sigma_v, double& rho, 
-                        double sigu_hyperprior, double ate_prior_sd, 
-                        bool rho_beta_prior, double rho_beta_a, double rho_beta_b, RNG& gen) {
+void initialize_sigmas(bool ibcf, double& sigma_y, double& sigma_u, double& sigma_v, double& rho, 
+                        double sigu_hyperprior, double ate_prior_sd, RNG& gen) {
   // sigma_y is not changed
   sigma_u = fabs(gen.normal(0., sigu_hyperprior));
-  sigma_v = fabs(gen.normal(0., sigma_u * ate_prior_sd));
-  if (rho_beta_prior) {
-    rho = 2*(gen.beta(rho_beta_a, rho_beta_b)-0.5);
-  } else {
-    rho = rc_invcdf(gen.uniform(), 0., 1.);
+  if (ibcf) {
+    sigma_v = fabs(gen.normal(0., sigma_u * ate_prior_sd));
+    rho = 2*(gen.beta(2, 2)-0.5);
   }
 }
 
@@ -398,19 +395,15 @@ void update_sigma_v(ginfo& gi, double* allfit, double hyperprior) {
   }
 }
 
-void update_rho(ginfo& gi, double* allfit, bool rho_prior_beta, double rho_beta_a, double rho_beta_b) {
+void update_rho(ginfo& gi, double* allfit) {
   // Proposal is an adaptive MH draw, scaled by ls_rho
   double proposal = propose_rho(gi.rho, gi.ls_rho, gi.gen);
   calculate_sigma2_i(gi, gi.sigma_y, gi.sigma_u, gi.sigma_v, proposal, gi.prop_sig2);
 
   double log_prior_current, log_prior_proposed;
-  if (rho_prior_beta) {
-    log_prior_current  = (rho_beta_a - 1)*log(gi.rho + 1)   + (rho_beta_b - 1)*log(1 - gi.rho);
-    log_prior_proposed = (rho_beta_a - 1)*log(proposal + 1) + (rho_beta_b - 1)*log(1 - proposal);
-  } else {
-    log_prior_current  = log(1 + cos(M_PI*gi.rho));
-    log_prior_proposed = log(1 + cos(M_PI*proposal));
-  } 
+  log_prior_current  = (2 - 1)*log(gi.rho + 1)   + (2 - 1)*log(1 - gi.rho);
+  log_prior_proposed = (2 - 1)*log(proposal + 1) + (2 - 1)*log(1 - proposal);
+ 
   double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed);
   double log_ratio = lp_diff + log((proposal + 1) * (1 - proposal) / ((gi.rho + 1) * (1 - gi.rho)));
 
@@ -428,19 +421,14 @@ void update_rho(ginfo& gi, double* allfit, bool rho_prior_beta, double rho_beta_
   }
 }
 
-void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior, bool rho_prior_beta, double rho_beta_a, double rho_beta_b) {
+void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior) {
   arma::vec proposal = propose_sigma_v_rho(gi.sigma_v, gi.rho, gi.xcov_sigma_v_rho, gi.gen);
   calculate_sigma2_i(gi, gi.sigma_y, gi.sigma_u, proposal(0), proposal(1), gi.prop_sig2);
 
   double log_prior_current  = - 0.5*gi.sigma_v  *gi.sigma_v / (hyperprior * hyperprior);
   double log_prior_proposed = - 0.5*proposal(0)*proposal(0) / (hyperprior * hyperprior);
-  if (rho_prior_beta) {
-    log_prior_current  += (rho_beta_a - 1)*log(gi.rho + 1)      + (rho_beta_b - 1)*log(1 - gi.rho);
-    log_prior_proposed += (rho_beta_a - 1)*log(proposal(1) + 1) + (rho_beta_b - 1)*log(1 - proposal(1));
-  } else {
-    log_prior_current  += log(1 + cos(M_PI*gi.rho));
-    log_prior_proposed += log(1 + cos(M_PI*proposal(1)));
-  }
+  log_prior_current  += (2 - 1)*log(gi.rho + 1)      + (2 - 1)*log(1 - gi.rho);
+  log_prior_proposed += (2 - 1)*log(proposal(1) + 1) + (2 - 1)*log(1 - proposal(1));
   
   double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed);
   double log_ratio_jacobian = log(fabs(proposal(0)*(proposal(1)*proposal(1) - 1))) - log(fabs(gi.sigma_v*(gi.rho*gi.rho - 1)));
@@ -503,6 +491,22 @@ void calculate_sigma2_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_
   }
 }
 
+void draw_u(double* u, double* allfit, ginfo& gi) {
+  double v_y = gi.sigma_y*gi.sigma_y;
+  double v_u = gi.sigma_u*gi.sigma_u;
+  double prior_prec = 1/v_u;
+  double r, data_prec, post_prec, post_sd, post_mean;
+  for(size_t i=0;i<gi.n;i++) {
+    r = gi.y[i] - allfit[i];
+    data_prec = gi.w[i] / (v_y);
+    post_prec = prior_prec + data_prec;
+    post_sd = sqrt(1/post_prec);
+    post_mean = data_prec * r / post_prec;
+
+    u[i] = gi.gen.normal(post_mean, post_sd);
+  }
+}
+
 void draw_uv(double* u, double* v, double* allfit, ginfo& gi) {
   arma::mat Sigma(2,2);
   Sigma(0,0) = gi.sigma_u*gi.sigma_u;
@@ -513,6 +517,7 @@ void draw_uv(double* u, double* v, double* allfit, ginfo& gi) {
   arma::mat invSigma(2,2);
   invSigma = arma::inv(Sigma);
 
+  double v_y = gi.sigma_y*gi.sigma_y;
   double r;
   arma::vec gamma(2);
   arma::mat data_prec(2,2);
@@ -526,10 +531,10 @@ void draw_uv(double* u, double* v, double* allfit, ginfo& gi) {
     gamma(0) = 1;
     gamma(1) = gi.z_[i];
 
-    data_prec = gi.w[i] / (gi.sigma_y*gi.sigma_y) * (gamma * arma::trans(gamma));
+    data_prec = gi.w[i] / (v_y) * (gamma * arma::trans(gamma));
     Sigma_star = arma::inv(invSigma + data_prec);
     
-    mu_star = arma::trans(Sigma_star * (gamma * (gi.w[i] *r / (gi.sigma_y*gi.sigma_y))));
+    mu_star = arma::trans(Sigma_star * (gamma * (gi.w[i] *r / (v_y))));
 
     draw = mvnorm(mu_star, Sigma_star, gi.gen);
     u[i] = draw(0);

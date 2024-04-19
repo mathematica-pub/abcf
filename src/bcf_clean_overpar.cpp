@@ -40,15 +40,12 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   CharacterVector treef_con_name_, CharacterVector treef_mod_name_,
                   int status_interval=100,
                   bool RJ= false, bool use_mscale=true, bool use_bscale=true, 
-                  bool b_half_normal=true, bool randeff=false,
+                  bool b_half_normal=true,
+                  bool abcf=false, bool ibcf=false,
                   int batch_size = 100, double acceptance_target=0.44,
                   double trt_init = 1.0, int verbose=1, 
-                  bool block_v_rho=false, int block_batch_size = 100,
                   bool block_b0_b1=false,
-                  double sigu_hyperprior=1.0, double ate_prior_sd=1.0,
-                  bool hardcode_sigma_u=false, bool hardcode_sigma_v=false, bool hardcode_rho=false,
-                  double hardcode_sigma_u_val=0.0, double hardcode_sigma_v_val=0.0, double hardcode_rho_val=0.0,
-                  bool rho_beta_prior=true, double rho_beta_a = 2.0, double rho_beta_b = 2.0)
+                  double sigu_hyperprior=1.0, double ate_prior_sd=1.0)
 {
 
   std::ofstream treef_con;
@@ -233,18 +230,8 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   double sigma_v = 0;
   double rho = 0;
   // For others draw from prior if we're doing random effects
-  if (randeff) {
-    initialize_sigmas(sigma_y, sigma_u, sigma_v, rho, sigu_hyperprior, ate_prior_sd, rho_beta_prior, rho_beta_a, rho_beta_b, gen);
-    // sigmas can't be hardcoded to 0 or u/v's Sigma isn't invertible
-    if(hardcode_sigma_u) {
-      sigma_u = std::max(0.00000001, hardcode_sigma_u_val);
-    }
-    if(hardcode_sigma_v) {
-      sigma_v = std::max(0.00000001, hardcode_sigma_v_val);
-    }
-    if(hardcode_rho) {
-      rho = hardcode_rho_val;
-    }
+  if (abcf|ibcf) {
+    initialize_sigmas(ibcf, sigma_y, sigma_u, sigma_v, rho, sigu_hyperprior, ate_prior_sd, gen);
   }
 
   //--------------------------------------------------
@@ -489,31 +476,27 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       }
     }
 
-    if (randeff) {
-      // each of these updates will also update sigma2_i when they run
+    if (abcf) {
       update_sigma_y(ginfo, allfit, nu, lambda);
-      if (!hardcode_sigma_u) {
-        update_sigma_u(ginfo, allfit, sigu_hyperprior);
-      }
-      if (!block_v_rho && !hardcode_sigma_v) {
-        update_sigma_v(ginfo, allfit, ate_prior_sd*ginfo.sigma_u);
-      }
-      if (!block_v_rho && !hardcode_rho) {
-        update_rho(ginfo, allfit, rho_beta_prior, rho_beta_a, rho_beta_b);
-      }
-      if (block_v_rho && !hardcode_sigma_v && !hardcode_rho) {
-        update_sigma_v_rho(ginfo, allfit, ate_prior_sd*ginfo.sigma_u, rho_beta_prior, rho_beta_a, rho_beta_b);
-        // Update the tracker with transformations
-        ginfo.xform_sigma_v[iIter] = log(ginfo.sigma_v);
-        ginfo.xform_rho[iIter] = log(ginfo.rho + 1) - log(1 - ginfo.rho);
+      update_sigma_u(ginfo, allfit, sigu_hyperprior);
+      draw_u(u, allfit, ginfo);
 
-        // Once we're exiting burn-in, and every block_batch_size iterations thereafter, recalculate the covariance matrix
-        if (iIter>=(burn-1) && (iIter - burn + 1) % block_batch_size==0) {
-          // NB: covariance matrix is on the transformed scale
-          update_mh_cov(ginfo.xcov_sigma_v_rho, ginfo.xform_sigma_v.head(iIter+1), ginfo.xform_rho.head(iIter+1));
-        }
+      if ((iIter+1) % batch_size == 0) {
+        update_adaptive_ls(ginfo, iIter, batch_size, acceptance_target);
       }
+    } else if (ibcf) {
+      update_sigma_y(ginfo, allfit, nu, lambda);
+      update_sigma_u(ginfo, allfit, sigu_hyperprior);
+      update_sigma_v_rho(ginfo, allfit, ate_prior_sd*ginfo.sigma_u);
+      ginfo.xform_sigma_v[iIter] = log(ginfo.sigma_v);
+      ginfo.xform_rho[iIter] = log(ginfo.rho + 1) - log(1 - ginfo.rho);
 
+      // Once we're exiting burn-in, and every batch_size iterations thereafter, recalculate the covariance matrix
+      if (iIter>=(burn-1) && (iIter - burn + 1) % batch_size==0) {
+        // NB: covariance matrix is on the transformed scale
+        update_mh_cov(ginfo.xcov_sigma_v_rho, ginfo.xform_sigma_v.head(iIter+1), ginfo.xform_rho.head(iIter+1));
+      }
+      
       draw_uv(u, v, allfit, ginfo);
 
       if ((iIter+1) % batch_size == 0) {
@@ -544,7 +527,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   } // end MCMC Loop
 
   // Print acceptance
-  if (randeff && verbose>0) {
+  if ((abcf|ibcf) && verbose>0) {
     logger.setLevel(1);
     sprintf(logBuff,"Acceptance: sigma_y: %f, sigma_u: %f, sigma_v: %f, rho: %f.", 
             float(ginfo.ac_sigma_y) / (nd*thin+burn),

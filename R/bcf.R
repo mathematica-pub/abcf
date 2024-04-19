@@ -75,7 +75,8 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
   list(nchain = length(chains),
        ndraw  = nrow(chains[[1]]$yhat),
        nobs   = ncol(chains[[1]]$yhat),
-       ibcf   = 'sigma_v' %in% names(chains[[1]]))
+       abcf   = chains[[1]]$abcf,
+       ibcf   = chains[[1]]$ibcf)
 }
 
 .extract_matrix_from_chains = function(chains, par) {
@@ -107,6 +108,9 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
                                  "sigma_u"   = x$sigma_u,
                                  "sigma_v"   = x$sigma_v,
                                  "rho"       = x$rho)
+    } else if (info$abcf) {
+        addl_scalars <- data.frame("sigma_y"   = x$sigma_y,
+                                   "sigma_u"   = x$sigma_u)
     } else {
       addl_scalars <- data.frame("sigma"     = x$sigma)
     }
@@ -124,20 +128,26 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
   ret$mu   <- .extract_matrix_from_chains(chains, 'mu')
   ret$tau  <- .extract_matrix_from_chains(chains, 'tau')
 
-  if(!info$ibcf) {
-    ret$sigma         <- .extract_vector_from_chains(chains, 'sigma')
+  if (info$ibcf) {
+      ret$u             <- .extract_matrix_from_chains(chains, 'u')
+      ret$v             <- .extract_matrix_from_chains(chains, 'v')
+      ret$sigma_y       <- .extract_vector_from_chains(chains, 'sigma_y')
+      ret$sigma_u       <- .extract_vector_from_chains(chains, 'sigma_u')
+      ret$sigma_v       <- .extract_vector_from_chains(chains, 'sigma_v')
+      ret$rho           <- .extract_vector_from_chains(chains, 'rho')
+      #This is super esoteric, and also giant since it's a N*draws matrix, so not actually saving
+      #Ditto the unfixed uv total residuals
+      #ret$sigma_i       <- .extract_matrix_from_chains(chains, 'sigma_i')
+      ret$acceptance    <- .extract_matrix_from_chains(chains, 'acceptance')
+      rownames(ret$acceptance) <- paste('chain',1:info$nchain,sep='_')
+  } else if (info$abcf) {
+      ret$u             <- .extract_matrix_from_chains(chains, 'u')
+      ret$sigma_y       <- .extract_vector_from_chains(chains, 'sigma_y')
+      ret$sigma_u       <- .extract_vector_from_chains(chains, 'sigma_u')
+      ret$acceptance    <- .extract_matrix_from_chains(chains, 'acceptance')
+      rownames(ret$acceptance) <- paste('chain',1:info$nchain,sep='_')
   } else {
-    ret$u             <- .extract_matrix_from_chains(chains, 'u')
-    ret$v             <- .extract_matrix_from_chains(chains, 'v')
-    ret$sigma_y       <- .extract_vector_from_chains(chains, 'sigma_y')
-    ret$sigma_u       <- .extract_vector_from_chains(chains, 'sigma_u')
-    ret$sigma_v       <- .extract_vector_from_chains(chains, 'sigma_v')
-    ret$rho           <- .extract_vector_from_chains(chains, 'rho')
-    #This is super esoteric, and also giant since it's a N*draws matrix, so not actually saving
-    #Ditto the unfixed uv total residuals
-    #ret$sigma_i       <- .extract_matrix_from_chains(chains, 'sigma_i')
-    ret$acceptance    <- .extract_matrix_from_chains(chains, 'acceptance')
-    rownames(ret$acceptance) <- paste('chain',1:info$nchain,sep='_')
+    ret$sigma         <- .extract_vector_from_chains(chains, 'sigma')
   }
 
   ret$mu_scale  <- .extract_vector_from_chains(chains, 'mu_scale')
@@ -146,8 +156,12 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
   ret$b0        <- .extract_vector_from_chains(chains, 'b0')
   ret$b1        <- .extract_vector_from_chains(chains, 'b1')
 
-  for (par in c('sdy','con_sd','mod_sd','muy','y','z','w','perm','include_pi','include_random_effects','random_seed')) {
+  for (par in c('sdy','con_sd','mod_sd','muy','y','z','w','perm','include_pi','abcf', 'ibcf', 'random_seed')) {
     ret[[par]] <- .extract_value_from_chains(chains, par)
+  }
+
+  if (info$ibcf) {
+      ret[['ate_prior_sd']] <- .extract_value_from_chains(chains, 'ate_prior_sd')
   }
 
   return(ret)
@@ -188,7 +202,7 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
 #' @param random_seed A random seed passed to R's set.seed
 #' @param n_chains  An optional integer of the number of MCMC chains to run
 #' @param n_cores An optional integer of the number of cores to run your MCMC chains on
-#' @param n_threads An optional integer of the number of threads to parallelize within chain bcf operations on
+#' @param n_threads An optional integer of the number of threads to parallelize within chain bcf operations on. Values greater than 1 tend to reduce performance, unless you have truly massive within-chain, within-iteration calculations, like a ginormous dataset
 #' @param nburn Number of burn-in MCMC iterations
 #' @param nsim Number of MCMC iterations to save after burn-in. The chain will run for nsim*nthin iterations after burn-in
 #' @param nthin Save every nthin'th MCMC iterate. The total number of MCMC iterations will be nsim*nthin + nburn.
@@ -201,10 +215,8 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
 #' @param sd_moderate SD(tau(x)) marginally at any covariate value (or its prior median if use_tauscale=TRUE)
 #' @param base_moderate Base for tree prior on tau(x) trees (see details)
 #' @param power_moderate Power for the tree prior on tau(x) trees (see details)
-#' @param sigu_hyperprior Prior median for SD of idosyncratic u terms
-#' @param ate_prior_sd Prior SD of the treatment effect, used to form hyperprior for idiosyncratic v terms
 #' @param save_tree_directory Specify where trees should be saved. Keep track of this for predict(). Defaults to working directory. Setting to NULL skips writing of trees.
-#' @param log_file file where BCF should save its logs when running multiple chains in parallel. This file is not written too when only running one chain.
+#' @param log_file file where BCF should save its logs when running multiple chains in parallel. This file is not written to when only running one chain.
 #' @param nu Degrees of freedom in the chisq prior on \eqn{sigma^2}
 #' @param lambda Scale parameter in the chisq prior on \eqn{sigma^2}
 #' @param sigq Calibration quantile for the chisq prior on \eqn{sigma^2}
@@ -214,16 +226,17 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
 #' or "both" are HIGHLY recommended with observational data.
 #' @param use_muscale Use a half-Cauchy hyperprior on the scale of mu.
 #' @param use_tauscale Use a half-Normal prior on the scale of tau.
-#' @param include_random_effects Use individual-level random effects u and v.
-#' @param batch_size Batch size to use for adapative Metropolis Hastings sampling (random effects model only)
-#' @param block_b0_b1 Whether to constrain b0 and b1. Better mixing at the expense of assuming equal variance across t/c
-#' @param acceptance_target Target acceptance rate for adaptive MH
-#' @param rho_beta_prior Whether to use a beta prior for rho. If not uses raised cosine with mu=0, s=1
-#' @param rho_beta_a first shape parameter for rho beta prior
-#' @param rho_beta_b second shape parameter for rho beta prior
+#' @param simplified_return Whether to return just the raw_chains object (which contains all relevant information), or to pre-calculate other output for ease of use (e.g. fit$tau).
+#' All output can be recreated by calling bcf:::.get_components_from_chains(fit$raw_chains)
 #' @param verbose Integer, whether to print log of MCMC iterations, defaults to 1 - basic logging of iteration progress.
 #' Setting to 0 disables logging, while setting to 2 enables logging of detailed statistics each iteration,
 #' and setting to 3 enables logging of individual trees.
+#' @param block_b0_b1 Whether to constrain b0 and b1 such that b0 = -b1. Better mixing at the expense of assuming equal variance across treatment and control
+#' @param abcf Boolean; whether to estimate the aggregate BCF (aBCF) model, including individual random effects
+#' @param sigu_hyperprior Prior median for prior SD of idiosyncratic u terms in aBCF and iBCF
+#' @param batch_size aBCF and iBCF only. Size of batches for adaptive Metropolis Hastings sampling of sigma_u (aBCF) as well as sigma_v/rho (iBCF only)
+#' @param ibcf Boolean; whether to estimate the individualized BCF (iBCF) model, including individual random effects and random treatment effects.
+#' @param ate_prior_sd Prior SD of the treatment effect, used to form a hyperprior for the SD of idiosyncratic treatment effects
 #' @return A fitted bcf object that is a list with elements
 #' \item{tau}{\code{nsim} by \code{n} matrix of posterior samples of individual-level treatment effect estimates}
 #' \item{mu}{\code{nsim} by \code{n} matrix of posterior samples of prognostic function E(Y|Z=0, x=x) estimates}
@@ -316,7 +329,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 random_seed = sample.int(.Machine$integer.max, 1),
                 n_chains = 4,
                 n_cores  = n_chains,
-                n_threads = max((RcppParallel::defaultNumThreads()-2)/n_cores,1), #max number of threads, minus a arbitrary holdback, over the number of cores
+                n_threads = 1, #max number of threads, minus a arbitrary holdback, over the number of cores. Tends to be much slower to use a value over 1, unless there are massive within-iteration calculations
                 nburn, nsim, nthin = 1, update_interval = 100,
                 ntree_control = 200,
                 sd_control = NULL,      #Still defaults to 2*sdy, but we do that latter so we can account for weights
@@ -330,14 +343,14 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 log_file=file.path('.',sprintf('bcf_log_%s.txt',format(Sys.time(), "%Y%m%d_%H%M%S"))),
                 nu = 3, lambda = NULL, sigq = .9, sighat = NULL,
                 include_pi = "control", use_muscale=TRUE, use_tauscale=TRUE,
-                include_random_effects=FALSE, batch_size = 100,
-                block_v_rho=FALSE, block_batch_size=100,
+                simplified_return=FALSE,
+                verbose=1,
                 block_b0_b1=FALSE,
-                sigu_hyperprior = NULL, ate_prior_sd = NULL,
-                hardcode_sigma_u=FALSE, hardcode_sigma_v=FALSE, hardcode_rho=FALSE,
-                hardcode_sigma_u_val=0, hardcode_sigma_v_val=0, hardcode_rho_val=0,
-                rho_beta_prior=TRUE, rho_beta_a=2, rho_beta_b=2,
-                simplified_return=FALSE, verbose=1
+                abcf=FALSE,
+                sigu_hyperprior = NULL,
+                batch_size = 100,
+                ibcf=FALSE,
+                ate_prior_sd = NULL
 ) {
 
 
@@ -376,8 +389,19 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   if(any(!is.finite(x_moderate))) stop("Non-numeric values in x_moderate")
   if(any(!is.finite(pihat))) stop("Non-numeric values in pihat")
   if(!all(sort(unique(z)) == c(0,1))) stop("z must be a vector of 0's and 1's, with at least one of each")
-  if(!(include_random_effects %in% c(TRUE,FALSE))) stop("include_random_effects must be TRUE or FALSE")
-  if(round(batch_size)!=batch_size | batch_size<1) stop("batch_size must be an integer larger than 0")
+  if (!use_tauscale & block_b0_b1) stop('Can\'t block b0 and b1 if tauscale is not used')
+  if(!(abcf %in% c(TRUE,FALSE))) stop("abcf must be TRUE or FALSE")
+  if(!(ibcf %in% c(TRUE,FALSE))) stop("ibcf must be TRUE or FALSE")
+  if (abcf|ibcf) {
+      if(round(batch_size)!=batch_size | batch_size<1) stop("batch_size must be an integer larger than 0")
+  }
+  if (ibcf) {
+      if(is.null(ate_prior_sd)) stop("must supply ate_prior_sd when using iBCF")
+      if(!is.numeric(ate_prior_sd) | ate_prior_sd<=0) stop("ate_prior_sd must be a positive number")
+  }
+  if(abcf & ibcf) {
+      stop('Can\'t do both aBCF and iBCF')
+  }
   if(!(verbose %in% 0:4)) stop("verbose must be an integer from 0 to 4")
 
   if(length(unique(y))<5) warning("y appears to be discrete")
@@ -388,7 +412,12 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   if(nthin>nsim+1) stop("nthin must be < nsim")
   if(nburn<1000) warning("A low (<1000) value for nburn was supplied")
   if(nsim*nburn<1000) warning("A low (<1000) value for total iterations after burn-in was supplied")
-  if ((hardcode_rho != hardcode_sigma_v) & block_v_rho) stop('One of rho and sigma_v is hardcoded, but ablock update was specified')
+  if (use_tauscale & !identical(x_control, x_moderate)) {
+      warning("Different covariate matrices supplied to x_control and x_moderate, but tau_scale is set to TRUE. When use_tauscale is TRUE, all covariates in x_moderate can still affect mu (but covariates in x_control cannot affect tau)")
+  }
+  if ((abcf|ibcf) & is.null(w)) {
+      warning('aBCF and iBCF models are not identified without weights')
+  }
 
   ### TODO range check on parameters
 
@@ -408,7 +437,6 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   sdy = sqrt(Hmisc::wtd.var(y, w))
   muy = stats::weighted.mean(y, w)
   yscale = (y-muy)/sdy
-
 
   if(is.null(lambda)) {
     if(is.null(sighat)) {
@@ -432,11 +460,6 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
     mod_sd = sd_moderate/sdy/ifelse(use_tauscale,0.674,1)
   }
 
-  #If sig u or v are hardcoded, convert that to sd scale
-  #Rho has it's own scale so leave as-is
-  hardcode_sigma_u_val <- hardcode_sigma_u_val/sdy
-  hardcode_sigma_v_val <- hardcode_sigma_v_val/sdy
-
   #If hyperprior sd isn't given, scale them off of the prior sds
   if (is.null(sigu_hyperprior)) {
     sigu_hyperprior <- con_sd/3
@@ -445,9 +468,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
     sigu_hyperprior <- sigu_hyperprior/sdy/0.674
   }
 
-  if (include_random_effects && is.null(ate_prior_sd)) {
-    stop('a prior SD for the ATE (ate_prior_sd) is required for iBCF')
-  } else if (include_random_effects) {
+  if (ibcf) {
     ate_prior_sd <- ate_prior_sd/sdy
   } else {
     ate_prior_sd <- 1
@@ -488,23 +509,13 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                                  treef_mod_name_ = tree_files$mod_trees,
                                  status_interval = update_interval,
                                  use_mscale = use_muscale, use_bscale = use_tauscale,
-                                 b_half_normal = TRUE, randeff = include_random_effects,
+                                 b_half_normal = TRUE,
+                                 abcf=abcf, ibcf=ibcf,
                                  batch_size=batch_size, acceptance_target=0.44,
                                  verbose=verbose,
-                                 block_v_rho=block_v_rho,
-                                 block_batch_size=block_batch_size,
                                  block_b0_b1=block_b0_b1,
                                  sigu_hyperprior=sigu_hyperprior,
-                                 ate_prior_sd=ate_prior_sd,
-                                 hardcode_sigma_u=hardcode_sigma_u,
-                                 hardcode_sigma_v=hardcode_sigma_v,
-                                 hardcode_rho=hardcode_rho,
-                                 hardcode_sigma_u_val=hardcode_sigma_u_val,
-                                 hardcode_sigma_v_val=hardcode_sigma_v_val,
-                                 hardcode_rho_val=hardcode_rho_val,
-                                 rho_beta_prior=rho_beta_prior,
-                                 rho_beta_a=rho_beta_a,
-                                 rho_beta_b=rho_beta_b)
+                                 ate_prior_sd=ate_prior_sd)
 
     cat("bcfoverparRcppClean returned to R\n")
 
@@ -524,10 +535,13 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
 
     v_post = sdy*fitbcf$v[,order(perm)]
 
-    if (include_random_effects) {
-      tau_post   <- tau_post  + v_post
-      mu_post    <- mu_post   + u_post
-      yhat_post  <- yhat_post + u_post + t(t(v_post) * z)
+    if (abcf) {
+        mu_post    <- mu_post   + u_post
+        yhat_post  <- yhat_post + u_post
+    } else if (ibcf) {
+        tau_post   <- tau_post  + v_post
+        mu_post    <- mu_post   + u_post
+        yhat_post  <- yhat_post + u_post + t(t(v_post) * z)
     }
 
     sigma_i = sdy*fitbcf$sigma_i[,order(perm)]
@@ -556,19 +570,27 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
          acceptance = fitbcf$acceptance,
          perm       = perm,
          include_pi = include_pi,
-         include_random_effects = include_random_effects,
+         abcf = abcf,
+         ibcf = ibcf,
+         ate_prior_sd = sdy*ate_prior_sd,
          random_seed=this_seed
     )
 
   }
 
-  if (!include_random_effects) {
+  if (!ibcf & !abcf) {
     #If we're not running IBCF, remove all the iBCF-specific components
     chain_out <- lapply(chain_out, function(x) {
       x$sigma <- x$sigma_y
-      x$sigma_y <- x$sigma_a <- x$sigma_b <- x$sigma_v <- x$rho <- x$sigma_i <- x$u <- x$v <- x$acceptance <- x$acc_sigv <- x$mux <- x$taux <- NULL
+      x$sigma_y <- x$sigma_u <- x$sigma_v <- x$rho <- x$sigma_i <- x$u <- x$v <- x$acceptance <- x$ate_prior_sd <- NULL
       return(x)
     })
+  } else if (!ibcf) {
+      chain_out <- lapply(chain_out, function(x) {
+          x$sigma_v <- x$rho <- x$v <- x$ate_prior_sd <- NULL
+          x$acceptance <- x$acceptance[c('sigma_y', 'sigma_u')]
+          return(x)
+      })
   }
 
   fitObj <- list(raw_chains = chain_out)
