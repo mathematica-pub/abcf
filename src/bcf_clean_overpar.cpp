@@ -38,6 +38,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   double con_alpha, double con_beta,
                   double mod_alpha, double mod_beta,
                   CharacterVector treef_con_name_, CharacterVector treef_mod_name_,
+                  bool continuous_tree_save=false,
                   int status_interval=100,
                   bool RJ= false, bool use_mscale=true, bool use_bscale=true, 
                   bool b_half_normal=true,
@@ -47,7 +48,10 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   bool block_b0_b1=false,
                   double sigu_hyperprior=1.0, double ate_prior_sd=1.0)
 {
-
+  
+  std::ostringstream treef_con_temp;
+  std::ostringstream treef_mod_temp;
+  
   std::ofstream treef_con;
   std::ofstream treef_mod;
   
@@ -58,10 +62,11 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     Rcout << "Saving Trees to"  << std::endl;
     Rcout << treef_con_name  << std::endl;
     Rcout << treef_mod_name  << std::endl;
-
-    treef_con.open(treef_con_name.c_str());
-    treef_mod.open(treef_mod_name.c_str());
-  }else{
+    if (continuous_tree_save) {
+      treef_con.open(treef_con_name.c_str());
+      treef_mod.open(treef_mod_name.c_str());
+    }
+  } else {
     Rcout << "Not Saving Trees to file"  << std::endl;
   }
   
@@ -301,15 +306,27 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
   //save stuff to tree file
   if(not treef_con_name.empty()){
-    treef_con << std::setprecision(save_tree_precision) << xi_con << endl; //cutpoints
-    treef_con << ntree_con << endl;  //number of trees
-    treef_con << di_con.p << endl;  //dimension of x's
-    treef_con << nd << endl;
-  
-    treef_mod << std::setprecision(save_tree_precision) << xi_mod << endl; //cutpoints
-    treef_mod << ntree_mod << endl;  //number of trees
-    treef_mod << di_mod.p << endl;  //dimension of x's
-    treef_mod << nd << endl;
+    if (continuous_tree_save) {
+      treef_con << std::setprecision(save_tree_precision) << xi_con << "\n"; //cutpoints
+      treef_con << ntree_con << "\n";  //number of trees
+      treef_con << di_con.p << "\n";  //dimension of x's
+      treef_con << nd << "\n";
+    
+      treef_mod << std::setprecision(save_tree_precision) << xi_mod << "\n"; //cutpoints
+      treef_mod << ntree_mod << "\n";  //number of trees
+      treef_mod << di_mod.p << "\n";  //dimension of x's
+      treef_mod << nd << "\n";
+    } else {
+      treef_con_temp << std::setprecision(save_tree_precision) << xi_con << "\n"; //cutpoints
+      treef_con_temp << ntree_con << "\n";  //number of trees
+      treef_con_temp << di_con.p << "\n";  //dimension of x's
+      treef_con_temp << nd << "\n";
+    
+      treef_mod_temp << std::setprecision(save_tree_precision) << xi_mod << "\n"; //cutpoints
+      treef_mod_temp << ntree_mod << "\n";  //number of trees
+      treef_mod_temp << di_mod.p << "\n";  //dimension of x's
+      treef_mod_temp << nd << "\n";
+    }
   }
 
   //*****************************************************************************
@@ -509,8 +526,13 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
     if( ((iIter>=burn) & (iIter % thin==0)) )  {
       if(not treef_con_name.empty()){
-        for(size_t j=0;j<ntree_con;j++) treef_con << std::setprecision(save_tree_precision) << t_con[j] << endl; // save trees
-        for(size_t j=0;j<ntree_mod;j++) treef_mod << std::setprecision(save_tree_precision) << t_mod[j] << endl; // save trees
+        if (continuous_tree_save) {
+          for(size_t j=0;j<ntree_con;j++) treef_con << std::setprecision(save_tree_precision) << t_con[j] << "\n"; // save trees
+          for(size_t j=0;j<ntree_mod;j++) treef_mod << std::setprecision(save_tree_precision) << t_mod[j] << "\n"; // save trees
+        } else {
+          for(size_t j=0;j<ntree_con;j++) treef_con_temp << std::setprecision(save_tree_precision) << t_con[j] << "\n"; // save trees
+          for(size_t j=0;j<ntree_mod;j++) treef_mod_temp << std::setprecision(save_tree_precision) << t_mod[j] << "\n"; // save trees
+        }
       }
       
       save_values(save_ctr, n, ntrt, msd_post, bsd_post, b0_post, b1_post, 
@@ -558,8 +580,24 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   delete[] weight_het;
   
   if(not treef_con_name.empty()){
-    treef_con.close();
-    treef_mod.close();
+    if (continuous_tree_save) {
+      treef_con.close();
+      treef_mod.close();  
+    } else {
+      treef_con_temp.flush();
+      treef_mod_temp.flush();
+
+      treef_con.open(treef_con_name.c_str());
+      treef_mod.open(treef_mod_name.c_str());
+      
+      treef_con << treef_con_temp.str();
+      treef_mod << treef_mod_temp.str();
+
+      treef_con.close();
+      treef_mod.close();
+      treef_con_temp.clear();
+      treef_mod_temp.clear();
+    }
   }
 
   acc_post(0) = float(ginfo.ac_sigma_y) / (nd*thin+burn);

@@ -216,6 +216,7 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
 #' @param base_moderate Base for tree prior on tau(x) trees (see details)
 #' @param power_moderate Power for the tree prior on tau(x) trees (see details)
 #' @param save_tree_directory Specify where trees should be saved. Keep track of this for predict(). Defaults to working directory. Setting to NULL skips writing of trees.
+#' @param continuous_tree_save Whether trees are written continuously or only once at the end
 #' @param log_file file where BCF should save its logs when running multiple chains in parallel. This file is not written to when only running one chain.
 #' @param nu Degrees of freedom in the chisq prior on \eqn{sigma^2}
 #' @param lambda Scale parameter in the chisq prior on \eqn{sigma^2}
@@ -340,6 +341,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 base_moderate = 0.25,
                 power_moderate = 3,
                 save_tree_directory = '.',
+                continuous_tree_save=FALSE,
                 log_file=file.path('.',sprintf('bcf_log_%s.txt',format(Sys.time(), "%Y%m%d_%H%M%S"))),
                 nu = 3, lambda = NULL, sigq = .9, sighat = NULL,
                 include_pi = "control", use_muscale=TRUE, use_tauscale=TRUE,
@@ -389,10 +391,11 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   if(any(!is.finite(x_moderate))) stop("Non-numeric values in x_moderate")
   if(any(!is.finite(pihat))) stop("Non-numeric values in pihat")
   if(!all(sort(unique(z)) == c(0,1))) stop("z must be a vector of 0's and 1's, with at least one of each")
-  if (!use_tauscale & block_b0_b1) stop('Can\'t block b0 and b1 if tauscale is not used')
+  if(!(continuous_tree_save %in% c(TRUE,FALSE))) stop("continuous_tree_save must be TRUE or FALSE")
+  if(!use_tauscale & block_b0_b1) stop('Can\'t block b0 and b1 if tauscale is not used')
   if(!(abcf %in% c(TRUE,FALSE))) stop("abcf must be TRUE or FALSE")
   if(!(ibcf %in% c(TRUE,FALSE))) stop("ibcf must be TRUE or FALSE")
-  if (abcf|ibcf) {
+  if(abcf|ibcf) {
       if(round(batch_size)!=batch_size | batch_size<1) stop("batch_size must be an integer larger than 0")
   }
   if (ibcf) {
@@ -507,6 +510,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                                  con_beta = power_control,
                                  treef_con_name_ = tree_files$con_trees,
                                  treef_mod_name_ = tree_files$mod_trees,
+                                 continuous_tree_save=continuous_tree_save,
                                  status_interval = update_interval,
                                  use_mscale = use_muscale, use_bscale = use_tauscale,
                                  b_half_normal = TRUE,
