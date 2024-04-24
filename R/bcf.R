@@ -341,6 +341,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 base_moderate = 0.25,
                 power_moderate = 3,
                 save_tree_directory = '.',
+                keep_trees = FALSE,
                 continuous_tree_save=FALSE,
                 log_file=file.path('.',sprintf('bcf_log_%s.txt',format(Sys.time(), "%Y%m%d_%H%M%S"))),
                 nu = 3, lambda = NULL, sigq = .9, sighat = NULL,
@@ -391,7 +392,10 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   if(any(!is.finite(x_moderate))) stop("Non-numeric values in x_moderate")
   if(any(!is.finite(pihat))) stop("Non-numeric values in pihat")
   if(!all(sort(unique(z)) == c(0,1))) stop("z must be a vector of 0's and 1's, with at least one of each")
+  if(!(keep_trees %in% c(TRUE,FALSE))) stop("keep_trees must be TRUE or FALSE")
   if(!(continuous_tree_save %in% c(TRUE,FALSE))) stop("continuous_tree_save must be TRUE or FALSE")
+  if (keep_trees & !is.null(save_tree_directory)) stop("Can\'t both save trees and keep trees; set save_tree_directory to NULL")
+  if (keep_trees & continuous_tree_save) stop("Can\'t both keep trees and write them continuously; set continuous_tree_save to FALSE")
   if(!use_tauscale & block_b0_b1) stop('Can\'t block b0 and b1 if tauscale is not used')
   if(!(abcf %in% c(TRUE,FALSE))) stop("abcf must be TRUE or FALSE")
   if(!(ibcf %in% c(TRUE,FALSE))) stop("ibcf must be TRUE or FALSE")
@@ -421,6 +425,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
   if ((abcf|ibcf) & length(unique(w))==1) {
       warning('aBCF and iBCF models are not identified without weights')
   }
+
 
   ### TODO range check on parameters
 
@@ -510,6 +515,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                                  con_beta = power_control,
                                  treef_con_name_ = tree_files$con_trees,
                                  treef_mod_name_ = tree_files$mod_trees,
+                                 keep_trees = keep_trees,
                                  continuous_tree_save=continuous_tree_save,
                                  status_interval = update_interval,
                                  use_mscale = use_muscale, use_bscale = use_tauscale,
@@ -577,7 +583,9 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
          abcf = abcf,
          ibcf = ibcf,
          ate_prior_sd = sdy*ate_prior_sd,
-         random_seed=this_seed
+         random_seed=this_seed,
+         con_trees = fitbcf$con_trees,
+         mod_trees = fitbcf$mod_trees
     )
 
   }
@@ -593,6 +601,13 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
       chain_out <- lapply(chain_out, function(x) {
           x$sigma_v <- x$rho <- x$v <- x$ate_prior_sd <- NULL
           x$acceptance <- x$acceptance[c('sigma_y', 'sigma_u')]
+          return(x)
+      })
+  }
+
+  if (!keep_trees) {
+      chain_out <- lapply(chain_out, function(x) {
+          x$con_trees <- x$mod_trees <- NULL
           return(x)
       })
   }
@@ -792,7 +807,7 @@ predict.bcf <- function(object,
                         x_predict_moderate,
                         pi_pred,
                         z_pred,
-                        save_tree_directory,
+                        save_tree_directory=NULL,
                         n_cores=2,
                         ...) {
 
@@ -827,17 +842,27 @@ predict.bcf <- function(object,
   x_pm = matrix(x_predict_moderate, ncol=ncol(x_predict_moderate))
   x_pc = matrix(x_predict_control, ncol=ncol(x_predict_control))
 
-  if(object$include_pi=="both" | object$include_pi=="control") {
+  if(object$raw_chains[[1]]$include_pi=="both" | object$raw_chains[[1]]$include_pi=="control") {
     x_pc = cbind(x_predict_control, pi_pred)
   }
-  if(object$include_pi=="both" | object$include_pi=="moderate") {
+  if(object$raw_chains[[1]]$include_pi=="both" | object$raw_chains[[1]]$include_pi=="moderate") {
     x_pm = cbind(x_predict_moderate, pi_pred)
   }
 
+  n_chains = length(object$raw_chains)
+
+  if (is.null(save_tree_directory)) {
+      if (is.null(object$raw_chains[[1]]$con_trees) | is.null(object$raw_chains[[1]]$mod_trees)) {
+          stop('Must providee tree directory if trees not included in fit')
+      }
+      save_tree_directory <- tempdir()
+      for (i in 1:n_chains) {
+          writeLines(object$raw_chains[[i]]$con_trees, file.path(save_tree_directory, paste('con_trees', i, 'txt', sep='.')))
+          writeLines(object$raw_chains[[i]]$mod_trees, file.path(save_tree_directory, paste('mod_trees', i, 'txt', sep='.')))
+      }
+  }
 
   cat("Starting Prediction \n")
-
-  n_chains = length(object$coda_chains)
 
   templog = tempfile()
   do_type_config <- .get_do_type(n_cores,templog)
@@ -868,9 +893,9 @@ predict.bcf <- function(object,
 
   chain_list=list()
 
-  muy = object$muy
+  muy = object$raw_chains[[1]]$muy
 
-  sdy = object$sdy
+  sdy = object$raw_chains[[1]]$sdy
 
   for (iChain in 1:n_chains){
 

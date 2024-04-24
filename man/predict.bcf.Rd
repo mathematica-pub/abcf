@@ -10,7 +10,7 @@
   x_predict_moderate,
   pi_pred,
   z_pred,
-  save_tree_directory,
+  save_tree_directory = NULL,
   n_cores = 2,
   ...
 )

@@ -28,6 +28,8 @@ bcf(
   base_moderate = 0.25,
   power_moderate = 3,
   save_tree_directory = ".",
+  keep_trees = FALSE,
+  continuous_tree_save = FALSE,
   log_file = file.path(".", sprintf("bcf_log_\%s.txt", format(Sys.time(),
     "\%Y\%m\%d_\%H\%M\%S"))),
   nu = 3,
@@ -93,6 +95,8 @@ bcf(
 \item{power_moderate}{Power for the tree prior on tau(x) trees (see details)}
 
 \item{save_tree_directory}{Specify where trees should be saved. Keep track of this for predict(). Defaults to working directory. Setting to NULL skips writing of trees.}
+
+\item{continuous_tree_save}{Whether trees are written continuously or only once at the end}
 
 \item{log_file}{file where BCF should save its logs when running multiple chains in parallel. This file is not written to when only running one chain.}
 

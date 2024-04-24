@@ -38,7 +38,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   double con_alpha, double con_beta,
                   double mod_alpha, double mod_beta,
                   CharacterVector treef_con_name_, CharacterVector treef_mod_name_,
-                  bool continuous_tree_save=false,
+                  bool keep_trees=false, bool continuous_tree_save=false,
                   int status_interval=100,
                   bool RJ= false, bool use_mscale=true, bool use_bscale=true, 
                   bool b_half_normal=true,
@@ -59,15 +59,17 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   std::string treef_mod_name = as<std::string>(treef_mod_name_);
   
   if(not treef_con_name.empty()){
-    Rcout << "Saving Trees to"  << std::endl;
+    Rcout << "Saving trees to"  << std::endl;
     Rcout << treef_con_name  << std::endl;
     Rcout << treef_mod_name  << std::endl;
     if (continuous_tree_save) {
       treef_con.open(treef_con_name.c_str());
       treef_mod.open(treef_mod_name.c_str());
     }
+  } else if (keep_trees) {
+    Rcout << "Saving trees to fit object"  << std::endl;
   } else {
-    Rcout << "Not Saving Trees to file"  << std::endl;
+    Rcout << "Not saving trees to file"  << std::endl;
   }
   
   RNGScope scope;
@@ -305,7 +307,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   int save_tree_precision = 32; 
 
   //save stuff to tree file
-  if(not treef_con_name.empty()){
+  if(not treef_con_name.empty() || keep_trees){
     if (continuous_tree_save) {
       treef_con << std::setprecision(save_tree_precision) << xi_con << "\n"; //cutpoints
       treef_con << ntree_con << "\n";  //number of trees
@@ -525,7 +527,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     }
 
     if( ((iIter>=burn) & (iIter % thin==0)) )  {
-      if(not treef_con_name.empty()){
+      if(not treef_con_name.empty() || keep_trees){
         if (continuous_tree_save) {
           for(size_t j=0;j<ntree_con;j++) treef_con << std::setprecision(save_tree_precision) << t_con[j] << "\n"; // save trees
           for(size_t j=0;j<ntree_mod;j++) treef_mod << std::setprecision(save_tree_precision) << t_mod[j] << "\n"; // save trees
@@ -609,6 +611,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                       _["sigma_y"] = sigma_y_post, _["sigma_u"] = sigma_u_post, _["sigma_v"] = sigma_v_post,
                       _["rho"] = rho_post, _["sigma_i"] = sigma_i_post, _["u"] = u_post, _["v"] = v_post,
                       _["msd"] = msd_post, _["bsd"] = bsd_post, _["b0"] = b0_post, _["b1"] = b1_post,
-                      _["delta_con"] = delta_con_post, _["acceptance"] = acc_post
-  ));
+                      _["delta_con"] = delta_con_post, _["acceptance"] = acc_post,
+                      _["con_trees"] = treef_con_temp.str(), _["mod_trees"] = treef_mod_temp.str()
+  ));  
 }
