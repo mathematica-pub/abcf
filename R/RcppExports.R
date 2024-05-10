@@ -2,6 +2,6 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 bcfoverparRcppClean <- function(y_, z_, w_, x_con_, x_mod_, x_con_info_list, x_mod_info_list, burn, nd, thin, ntree_mod, ntree_con, lambda, nu, con_sd, mod_sd, con_alpha, con_beta, mod_alpha, mod_beta, treef_con_name_, treef_mod_name_, keep_trees = FALSE, continuous_tree_save = FALSE, status_interval = 100L, RJ = FALSE, use_mscale = TRUE, use_bscale = TRUE, b_half_normal = TRUE, abcf = FALSE, ibcf = FALSE, batch_size = 100L, acceptance_target = 0.44, trt_init = 1.0, verbose = 1L, block_b0_b1 = FALSE, sigu_hyperprior = 1.0, ate_prior_sd = 1.0) {
-    .Call('_bcf_bcfoverparRcppClean', PACKAGE = 'bcf', y_, z_, w_, x_con_, x_mod_, x_con_info_list, x_mod_info_list, burn, nd, thin, ntree_mod, ntree_con, lambda, nu, con_sd, mod_sd, con_alpha, con_beta, mod_alpha, mod_beta, treef_con_name_, treef_mod_name_, keep_trees, continuous_tree_save, status_interval, RJ, use_mscale, use_bscale, b_half_normal, abcf, ibcf, batch_size, acceptance_target, trt_init, verbose, block_b0_b1, sigu_hyperprior, ate_prior_sd)
+    .Call('_abcf_bcfoverparRcppClean', PACKAGE = 'abcf', y_, z_, w_, x_con_, x_mod_, x_con_info_list, x_mod_info_list, burn, nd, thin, ntree_mod, ntree_con, lambda, nu, con_sd, mod_sd, con_alpha, con_beta, mod_alpha, mod_beta, treef_con_name_, treef_mod_name_, keep_trees, continuous_tree_save, status_interval, RJ, use_mscale, use_bscale, b_half_normal, abcf, ibcf, batch_size, acceptance_target, trt_init, verbose, block_b0_b1, sigu_hyperprior, ate_prior_sd)
 }
 

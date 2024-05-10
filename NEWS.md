@@ -1,6 +1,13 @@
-# bcf 2.0.0
+# bcf 2.1.0
+This page provides more details on the latest updates to `abcf`.
 
-This page provides more details on the latest updates to `bcf`.
+## Major changes
+
+- rename package to abcf, to make clear its forked lineage from `bcf`
+- incorporate unit random effects into estimation
+- modularize some of the underlying C++ code
+
+# bcf 2.0.0
 
 ## Major changes
 

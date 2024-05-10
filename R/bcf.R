@@ -324,7 +324,7 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
 #' plot(tau, tauhat); abline(0,1)
 #'}
 #'
-#' @useDynLib bcf
+#' @useDynLib abcf
 #' @export
 bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 random_seed = sample.int(.Machine$integer.max, 1),
