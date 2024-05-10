@@ -42,7 +42,7 @@ bcf(
   simplified_return = FALSE,
   verbose = 1,
   block_b0_b1 = FALSE,
-  abcf = FALSE,
+  abcf = TRUE,
   sigu_hyperprior = NULL,
   batch_size = 100,
   ibcf = FALSE,
