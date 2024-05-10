@@ -228,7 +228,7 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
 #' @param use_muscale Use a half-Cauchy hyperprior on the scale of mu.
 #' @param use_tauscale Use a half-Normal prior on the scale of tau.
 #' @param simplified_return Whether to return just the raw_chains object (which contains all relevant information), or to pre-calculate other output for ease of use (e.g. fit$tau).
-#' All output can be recreated by calling bcf:::.get_components_from_chains(fit$raw_chains)
+#' All output can be recreated by calling abcf:::.get_components_from_chains(fit$raw_chains)
 #' @param verbose Integer, whether to print log of MCMC iterations, defaults to 1 - basic logging of iteration progress.
 #' Setting to 0 disables logging, while setting to 2 enables logging of detailed statistics each iteration,
 #' and setting to 3 enables logging of individual trees.
