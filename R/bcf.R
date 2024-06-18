@@ -3,168 +3,168 @@
 Rcpp::loadModule(module = "TreeSamples", TRUE)
 
 .ident <- function(...){
-  # courtesy https://stackoverflow.com/questions/19966515/how-do-i-test-if-three-variables-are-equal-r
-  args <- c(...)
-  if( length( args ) > 2L ){
-    #  recursively call ident()
-    out <- c( identical( args[1] , args[2] ) , .ident(args[-1]))
-  }else{
-    out <- identical( args[1] , args[2] )
-  }
-  return( all( out ) )
+    # courtesy https://stackoverflow.com/questions/19966515/how-do-i-test-if-three-variables-are-equal-r
+    args <- c(...)
+    if( length( args ) > 2L ){
+        #  recursively call ident()
+        out <- c( identical( args[1] , args[2] ) , .ident(args[-1]))
+    }else{
+        out <- identical( args[1] , args[2] )
+    }
+    return( all( out ) )
 }
 
 .cp_quantile = function(x, num=10000, cat_levels=8){
-  nobs = length(x)
-  nuniq = length(unique(x))
+    nobs = length(x)
+    nuniq = length(unique(x))
 
-  if(nuniq==1) {
-    ret = x[1]
-    warning("A supplied covariate contains a single distinct value.")
-  } else if(nuniq < cat_levels) {
-    xx = sort(unique(x))
-    ret = xx[-length(xx)] + diff(xx)/2
-  } else {
-    q = approxfun(sort(x),quantile(x,p = 0:(nobs-1)/nobs))
-    ind = seq(min(x),max(x),length.out=num)
-    ret = q(ind)
-  }
+    if(nuniq==1) {
+        ret = x[1]
+        warning("A supplied covariate contains a single distinct value.")
+    } else if(nuniq < cat_levels) {
+        xx = sort(unique(x))
+        ret = xx[-length(xx)] + diff(xx)/2
+    } else {
+        q = approxfun(sort(x),quantile(x,p = 0:(nobs-1)/nobs))
+        ind = seq(min(x),max(x),length.out=num)
+        ret = q(ind)
+    }
 
-  return(ret)
+    return(ret)
 }
 
 .get_chain_tree_files = function(tree_path, chain_id){
-  if (is.null(tree_path)){
-    out <- list(
-      "con_trees" = toString(character(0)),
-      "mod_trees" = toString(character(0))
-    )
-  } else{
-    out <- list("con_trees" = paste0(tree_path,'/',"con_trees.", chain_id, ".txt"),
-                "mod_trees" = paste0(tree_path,'/',"mod_trees.", chain_id, ".txt"))
-  }
-  return(out)
+    if (is.null(tree_path)){
+        out <- list(
+            "con_trees" = toString(character(0)),
+            "mod_trees" = toString(character(0))
+        )
+    } else{
+        out <- list("con_trees" = paste0(tree_path,'/',"con_trees.", chain_id, ".txt"),
+                    "mod_trees" = paste0(tree_path,'/',"mod_trees.", chain_id, ".txt"))
+    }
+    return(out)
 }
 
 .get_do_type = function(n_cores, log_file){
-  if(n_cores>1){
-    cl <- parallel::makeCluster(n_cores, outfile=log_file)
+    if(n_cores>1){
+        cl <- parallel::makeCluster(n_cores, outfile=log_file)
 
-    cat(sprintf("Running in parallel, saving BCF logs to %s \n", log_file))
-    doParallel::registerDoParallel(cl)
-    `%doType%`  <- foreach::`%dopar%`
-  } else {
-    cl <- NULL
-    `%doType%`  <- foreach::`%do%`
-  }
+        cat(sprintf("Running in parallel, saving BCF logs to %s \n", log_file))
+        doParallel::registerDoParallel(cl)
+        `%doType%`  <- foreach::`%dopar%`
+    } else {
+        cl <- NULL
+        `%doType%`  <- foreach::`%do%`
+    }
 
-  do_type_config <- list('doType'  = `%doType%`,
-                         'n_cores' = n_cores,
-                         'cluster' = cl)
+    do_type_config <- list('doType'  = `%doType%`,
+                           'n_cores' = n_cores,
+                           'cluster' = cl)
 
-  return(do_type_config)
+    return(do_type_config)
 }
 
 .cleanup_after_par = function(do_type_config){
-  if(do_type_config$n_cores>1){
-    parallel::stopCluster(do_type_config$cluster)
-  }
+    if(do_type_config$n_cores>1){
+        parallel::stopCluster(do_type_config$cluster)
+    }
 }
 
 .get_info_from_chains = function(chains) {
-  list(nchain = length(chains),
-       ndraw  = nrow(chains[[1]]$yhat),
-       nobs   = ncol(chains[[1]]$yhat),
-       abcf   = chains[[1]]$abcf,
-       ibcf   = chains[[1]]$ibcf)
+    list(nchain = length(chains),
+         ndraw  = nrow(chains[[1]]$yhat),
+         nobs   = ncol(chains[[1]]$yhat),
+         abcf   = chains[[1]]$abcf,
+         ibcf   = chains[[1]]$ibcf)
 }
 
 .extract_matrix_from_chains = function(chains, par) {
-  do.call(what = rbind, args = lapply(chains, `[[`, par))
+    do.call(what = rbind, args = lapply(chains, `[[`, par))
 }
 
 .extract_vector_from_chains = function(chains, par) {
-  unlist(lapply(chains, `[[`, par))
+    unlist(lapply(chains, `[[`, par))
 }
 
 .extract_value_from_chains = function(chains, par) {
-  chains[[1]][[par]]
+    chains[[1]][[par]]
 }
 
 .extract_coda_chains = function(chains) {
-  info = .get_info_from_chains(chains)
-  mcmcs <- lapply(chains, function(x) {
+    info = .get_info_from_chains(chains)
+    mcmcs <- lapply(chains, function(x) {
 
-    scalars <- data.frame("tau_bar"   = matrixStats::rowWeightedMeans(x$tau,  x$w),
-                          "mu_bar"    = matrixStats::rowWeightedMeans(x$mu,   x$w),
-                          "yhat_bar"  = matrixStats::rowWeightedMeans(x$yhat, x$w),
-                          "mu_scale"  = x$mu_scale,
-                          "tau_scale" = x$tau_scale,
-                          "b0"        = x$b0,
-                          "b1"        = x$b1,
-                          "delta_mu"  = x$delta_mu)
-    if (info$ibcf) {
-      addl_scalars <- data.frame("sigma_y"   = x$sigma_y,
-                                 "sigma_u"   = x$sigma_u,
-                                 "sigma_v"   = x$sigma_v,
-                                 "rho"       = x$rho)
-    } else if (info$abcf) {
-        addl_scalars <- data.frame("sigma_y"   = x$sigma_y,
-                                   "sigma_u"   = x$sigma_u)
-    } else {
-      addl_scalars <- data.frame("sigma"     = x$sigma)
-    }
-    return(coda::as.mcmc(cbind(scalars, addl_scalars)))
-  })
-  return(coda::as.mcmc.list(mcmcs))
+        scalars <- data.frame("tau_bar"   = matrixStats::rowWeightedMeans(x$tau,  x$w),
+                              "mu_bar"    = matrixStats::rowWeightedMeans(x$mu,   x$w),
+                              "yhat_bar"  = matrixStats::rowWeightedMeans(x$yhat, x$w),
+                              "mu_scale"  = x$mu_scale,
+                              "tau_scale" = x$tau_scale,
+                              "b0"        = x$b0,
+                              "b1"        = x$b1,
+                              "delta_mu"  = x$delta_mu)
+        if (info$ibcf) {
+            addl_scalars <- data.frame("sigma_y"   = x$sigma_y,
+                                       "sigma_u"   = x$sigma_u,
+                                       "sigma_v"   = x$sigma_v,
+                                       "rho"       = x$rho)
+        } else if (info$abcf) {
+            addl_scalars <- data.frame("sigma_y"   = x$sigma_y,
+                                       "sigma_u"   = x$sigma_u)
+        } else {
+            addl_scalars <- data.frame("sigma"     = x$sigma)
+        }
+        return(coda::as.mcmc(cbind(scalars, addl_scalars)))
+    })
+    return(coda::as.mcmc.list(mcmcs))
 }
 
 .get_components_from_chains <- function(chains) {
-  info = .get_info_from_chains(chains)
-  ret <- list()
+    info = .get_info_from_chains(chains)
+    ret <- list()
 
-  #Matrices
-  ret$yhat <- .extract_matrix_from_chains(chains, 'yhat')
-  ret$mu   <- .extract_matrix_from_chains(chains, 'mu')
-  ret$tau  <- .extract_matrix_from_chains(chains, 'tau')
+    #Matrices
+    ret$yhat <- .extract_matrix_from_chains(chains, 'yhat')
+    ret$mu   <- .extract_matrix_from_chains(chains, 'mu')
+    ret$tau  <- .extract_matrix_from_chains(chains, 'tau')
 
-  if (info$ibcf) {
-      ret$u             <- .extract_matrix_from_chains(chains, 'u')
-      ret$v             <- .extract_matrix_from_chains(chains, 'v')
-      ret$sigma_y       <- .extract_vector_from_chains(chains, 'sigma_y')
-      ret$sigma_u       <- .extract_vector_from_chains(chains, 'sigma_u')
-      ret$sigma_v       <- .extract_vector_from_chains(chains, 'sigma_v')
-      ret$rho           <- .extract_vector_from_chains(chains, 'rho')
-      #This is super esoteric, and also giant since it's a N*draws matrix, so not actually saving
-      #Ditto the unfixed uv total residuals
-      #ret$sigma_i       <- .extract_matrix_from_chains(chains, 'sigma_i')
-      ret$acceptance    <- .extract_matrix_from_chains(chains, 'acceptance')
-      rownames(ret$acceptance) <- paste('chain',1:info$nchain,sep='_')
-  } else if (info$abcf) {
-      ret$u             <- .extract_matrix_from_chains(chains, 'u')
-      ret$sigma_y       <- .extract_vector_from_chains(chains, 'sigma_y')
-      ret$sigma_u       <- .extract_vector_from_chains(chains, 'sigma_u')
-      ret$acceptance    <- .extract_matrix_from_chains(chains, 'acceptance')
-      rownames(ret$acceptance) <- paste('chain',1:info$nchain,sep='_')
-  } else {
-    ret$sigma         <- .extract_vector_from_chains(chains, 'sigma')
-  }
+    if (info$ibcf) {
+        ret$u             <- .extract_matrix_from_chains(chains, 'u')
+        ret$v             <- .extract_matrix_from_chains(chains, 'v')
+        ret$sigma_y       <- .extract_vector_from_chains(chains, 'sigma_y')
+        ret$sigma_u       <- .extract_vector_from_chains(chains, 'sigma_u')
+        ret$sigma_v       <- .extract_vector_from_chains(chains, 'sigma_v')
+        ret$rho           <- .extract_vector_from_chains(chains, 'rho')
+        #This is super esoteric, and also giant since it's a N*draws matrix, so not actually saving
+        #Ditto the unfixed uv total residuals
+        #ret$sigma_i       <- .extract_matrix_from_chains(chains, 'sigma_i')
+        ret$acceptance    <- .extract_matrix_from_chains(chains, 'acceptance')
+        rownames(ret$acceptance) <- paste('chain',1:info$nchain,sep='_')
+    } else if (info$abcf) {
+        ret$u             <- .extract_matrix_from_chains(chains, 'u')
+        ret$sigma_y       <- .extract_vector_from_chains(chains, 'sigma_y')
+        ret$sigma_u       <- .extract_vector_from_chains(chains, 'sigma_u')
+        ret$acceptance    <- .extract_matrix_from_chains(chains, 'acceptance')
+        rownames(ret$acceptance) <- paste('chain',1:info$nchain,sep='_')
+    } else {
+        ret$sigma         <- .extract_vector_from_chains(chains, 'sigma')
+    }
 
-  ret$mu_scale  <- .extract_vector_from_chains(chains, 'mu_scale')
-  ret$delta_mu  <- .extract_vector_from_chains(chains, 'delta_mu')
-  ret$tau_scale <- .extract_vector_from_chains(chains, 'tau_scale')
-  ret$b0        <- .extract_vector_from_chains(chains, 'b0')
-  ret$b1        <- .extract_vector_from_chains(chains, 'b1')
+    ret$mu_scale  <- .extract_vector_from_chains(chains, 'mu_scale')
+    ret$delta_mu  <- .extract_vector_from_chains(chains, 'delta_mu')
+    ret$tau_scale <- .extract_vector_from_chains(chains, 'tau_scale')
+    ret$b0        <- .extract_vector_from_chains(chains, 'b0')
+    ret$b1        <- .extract_vector_from_chains(chains, 'b1')
 
-  for (par in c('sdy','con_sd','mod_sd','muy','y','z','w','perm','include_pi','abcf', 'ibcf', 'random_seed')) {
-    ret[[par]] <- .extract_value_from_chains(chains, par)
-  }
+    for (par in c('sdy','con_sd','mod_sd','muy','y','z','w','perm','include_pi','abcf', 'ibcf', 'random_seed')) {
+        ret[[par]] <- .extract_value_from_chains(chains, par)
+    }
 
-  if (info$ibcf) {
-      ret[['ate_prior_sd']] <- .extract_value_from_chains(chains, 'ate_prior_sd')
-  }
+    if (info$ibcf) {
+        ret[['ate_prior_sd']] <- .extract_value_from_chains(chains, 'ate_prior_sd')
+    }
 
-  return(ret)
+    return(ret)
 }
 
 #' Fit Bayesian Causal Forests
@@ -357,274 +357,274 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
 ) {
 
 
-  if(is.null(w)){
-    w <- matrix(1, ncol = 1, nrow = length(y))
-  }
+    if(is.null(w)){
+        w <- matrix(1, ncol = 1, nrow = length(y))
+    }
 
-  pihat = as.matrix(pihat)
-  if(!.ident(length(y),
-             length(z),
-             length(w),
-             nrow(x_control),
-             nrow(x_moderate),
-             nrow(pihat))
-  ) {
-    stop("Data size mismatch. The following should all be equal:
+    pihat = as.matrix(pihat)
+    if(!.ident(length(y),
+               length(z),
+               length(w),
+               nrow(x_control),
+               nrow(x_moderate),
+               nrow(pihat))
+    ) {
+        stop("Data size mismatch. The following should all be equal:
          length(y): ", length(y), "\n",
-         "length(z): ", length(z), "\n",
-         "length(w): ", length(w), "\n",
-         "nrow(x_control): ", nrow(x_control), "\n",
-         "nrow(x_moderate): ", nrow(x_moderate), "\n",
-         "nrow(pihat): ", nrow(pihat),"\n"
-    )
-  }
-
-  if(any(is.na(y))) stop("Missing values in y")
-  if(any(is.na(z))) stop("Missing values in z")
-  if(any(is.na(w))) stop("Missing values in w")
-  if(any(is.na(x_control))) stop("Missing values in x_control")
-  if(any(is.na(x_moderate))) stop("Missing values in x_moderate")
-  if(any(is.na(pihat))) stop("Missing values in pihat")
-  if(any(!is.finite(y))) stop("Non-numeric values in y")
-  if(any(!is.finite(z))) stop("Non-numeric values in z")
-  if(any(!is.finite(w))) stop("Non-numeric values in w")
-  if(any(!is.finite(x_control))) stop("Non-numeric values in x_control")
-  if(any(!is.finite(x_moderate))) stop("Non-numeric values in x_moderate")
-  if(any(!is.finite(pihat))) stop("Non-numeric values in pihat")
-  if(!all(sort(unique(z)) == c(0,1))) stop("z must be a vector of 0's and 1's, with at least one of each")
-  if(!(keep_trees %in% c(TRUE,FALSE))) stop("keep_trees must be TRUE or FALSE")
-  if(!(continuous_tree_save %in% c(TRUE,FALSE))) stop("continuous_tree_save must be TRUE or FALSE")
-  if (keep_trees & !is.null(save_tree_directory)) stop("Can\'t both save trees and keep trees; set save_tree_directory to NULL")
-  if (keep_trees & continuous_tree_save) stop("Can\'t both keep trees and write them continuously; set continuous_tree_save to FALSE")
-  if(!use_tauscale & block_b0_b1) stop('Can\'t block b0 and b1 if tauscale is not used')
-  if(!(abcf %in% c(TRUE,FALSE))) stop("abcf must be TRUE or FALSE")
-  if(!(ibcf %in% c(TRUE,FALSE))) stop("ibcf must be TRUE or FALSE")
-  if(abcf|ibcf) {
-      if(round(batch_size)!=batch_size | batch_size<1) stop("batch_size must be an integer larger than 0")
-  }
-  if (ibcf) {
-      if(is.null(ate_prior_sd)) stop("must supply ate_prior_sd when using iBCF")
-      if(!is.numeric(ate_prior_sd) | ate_prior_sd<=0) stop("ate_prior_sd must be a positive number")
-  }
-  if(abcf & ibcf) {
-      stop('Can\'t do both aBCF and iBCF')
-  }
-  if(!(verbose %in% 0:4)) stop("verbose must be an integer from 0 to 4")
-
-  if(length(unique(y))<5) warning("y appears to be discrete")
-
-  if(nburn<0) stop("nburn must be positive")
-  if(nsim<0) stop("nsim must be positive")
-  if(nthin<0) stop("nthin must be positive")
-  if(nthin>nsim+1) stop("nthin must be < nsim")
-  if(nburn<1000) warning("A low (<1000) value for nburn was supplied")
-  if(nsim*nburn<1000) warning("A low (<1000) value for total iterations after burn-in was supplied")
-  if (use_tauscale & !identical(x_control, x_moderate)) {
-      warning("Different covariate matrices supplied to x_control and x_moderate, but tau_scale is set to TRUE. When use_tauscale is TRUE, all covariates in x_moderate can still affect mu (but covariates in x_control cannot affect tau)")
-  }
-  if ((abcf|ibcf) & length(unique(w))==1) {
-      warning('aBCF and iBCF models are not identified without weights')
-  }
-
-
-  ### TODO range check on parameters
-
-  ###
-  x_c = matrix(x_control, ncol=ncol(x_control))
-  x_m = matrix(x_moderate, ncol=ncol(x_moderate))
-
-  if(include_pi=="both" | include_pi=="control") {
-    x_c = cbind(x_control, pihat)
-  }
-  if(include_pi=="both" | include_pi=="moderate") {
-    x_m = cbind(x_moderate, pihat)
-  }
-  cutpoint_list_c = lapply(1:ncol(x_c), function(i) .cp_quantile(x_c[,i]))
-  cutpoint_list_m = lapply(1:ncol(x_m), function(i) .cp_quantile(x_m[,i]))
-
-  sdy = sqrt(Hmisc::wtd.var(y, w))
-  muy = stats::weighted.mean(y, w)
-  yscale = (y-muy)/sdy
-
-  if(is.null(lambda)) {
-    if(is.null(sighat)) {
-      lmf = lm(yscale~z+as.matrix(x_c), weights = w)
-      sighat = summary(lmf)$sigma #sd(y) #summary(lmf)$sigma
-    }
-    qchi = qchisq(1.0-sigq,nu)
-    lambda = (sighat*sighat*qchi)/nu
-  }
-
-  #If prior sds are not given, default them to scale off of the weighted sdy
-  if (is.null(sd_control)) {
-    con_sd <- 2
-  } else {
-    con_sd = sd_control/sdy
-  }
-
-  if (is.null(sd_moderate)) {
-    mod_sd <- 1/ifelse(use_tauscale,0.674,1)
-  } else {
-    mod_sd = sd_moderate/sdy/ifelse(use_tauscale,0.674,1)
-  }
-
-  #If hyperprior sd isn't given, scale them off of the prior sds
-  if (is.null(sigu_hyperprior)) {
-    sigu_hyperprior <- con_sd/3
-  } else {
-    #user-entered values will should be prior medians, so convert to scale using 0.674
-    sigu_hyperprior <- sigu_hyperprior/sdy/0.674
-  }
-
-  if (ibcf) {
-    ate_prior_sd <- ate_prior_sd/sdy
-  } else {
-    ate_prior_sd <- 1
-  }
-
-  dir = tempdir()
-
-  perm = order(z, decreasing=TRUE)
-
-  RcppParallel::setThreadOptions(numThreads=n_threads)
-
-  do_type_config <- .get_do_type(n_cores, log_file)
-  `%doType%` <- do_type_config$doType
-
-  chain_out <- foreach::foreach(iChain=1:n_chains) %doType% {
-
-    this_seed = random_seed + iChain - 1
-
-    cat("Calling bcfoverparRcppClean From R\n")
-    set.seed(this_seed)
-
-    tree_files = .get_chain_tree_files(save_tree_directory, iChain)
-
-    fitbcf = bcfoverparRcppClean(y_ = yscale[perm], z_ = z[perm], w_ = w[perm],
-                                 x_con_ = t(x_c[perm,,drop=FALSE]), x_mod_ = t(x_m[perm,,drop=FALSE]),
-                                 x_con_info_list = cutpoint_list_c,
-                                 x_mod_info_list = cutpoint_list_m,
-                                 burn = nburn, nd = nsim, thin = nthin,
-                                 ntree_mod = ntree_moderate, ntree_con = ntree_control,
-                                 lambda = lambda, nu = nu,
-                                 con_sd = con_sd,
-                                 mod_sd = mod_sd, # if HN make sd_moderate the prior median
-                                 mod_alpha = base_moderate,
-                                 mod_beta = power_moderate,
-                                 con_alpha = base_control,
-                                 con_beta = power_control,
-                                 treef_con_name_ = tree_files$con_trees,
-                                 treef_mod_name_ = tree_files$mod_trees,
-                                 keep_trees = keep_trees,
-                                 continuous_tree_save=continuous_tree_save,
-                                 status_interval = update_interval,
-                                 use_mscale = use_muscale, use_bscale = use_tauscale,
-                                 b_half_normal = TRUE,
-                                 abcf=abcf, ibcf=ibcf,
-                                 batch_size=batch_size, acceptance_target=0.44,
-                                 verbose=verbose,
-                                 block_b0_b1=block_b0_b1,
-                                 sigu_hyperprior=sigu_hyperprior,
-                                 ate_prior_sd=ate_prior_sd)
-
-    cat("bcfoverparRcppClean returned to R\n")
-
-    ac = fitbcf$m_post[,order(perm)]
-
-    Tm = fitbcf$b_post[,order(perm)] * (1.0/ (fitbcf$b1 - fitbcf$b0))
-
-    Tc = ac * (1.0/fitbcf$msd)
-
-    tau_post = sdy*fitbcf$b_post[,order(perm)]
-
-    mu_post  = muy + sdy*(Tc*fitbcf$msd + Tm*fitbcf$b0)
-
-    yhat_post = muy + sdy*fitbcf$yhat_post[,order(perm)]
-
-    u_post = sdy*fitbcf$u[,order(perm)]
-
-    v_post = sdy*fitbcf$v[,order(perm)]
-
-    if (abcf) {
-        mu_post    <- mu_post   + u_post
-        yhat_post  <- yhat_post + u_post
-    } else if (ibcf) {
-        tau_post   <- tau_post  + v_post
-        mu_post    <- mu_post   + u_post
-        yhat_post  <- yhat_post + u_post + t(t(v_post) * z)
+             "length(z): ", length(z), "\n",
+             "length(w): ", length(w), "\n",
+             "nrow(x_control): ", nrow(x_control), "\n",
+             "nrow(x_moderate): ", nrow(x_moderate), "\n",
+             "nrow(pihat): ", nrow(pihat),"\n"
+        )
     }
 
-    sigma_i = sdy*fitbcf$sigma_i[,order(perm)]
+    if(any(is.na(y))) stop("Missing values in y")
+    if(any(is.na(z))) stop("Missing values in z")
+    if(any(is.na(w))) stop("Missing values in w")
+    if(any(is.na(x_control))) stop("Missing values in x_control")
+    if(any(is.na(x_moderate))) stop("Missing values in x_moderate")
+    if(any(is.na(pihat))) stop("Missing values in pihat")
+    if(any(!is.finite(y))) stop("Non-numeric values in y")
+    if(any(!is.finite(z))) stop("Non-numeric values in z")
+    if(any(!is.finite(w))) stop("Non-numeric values in w")
+    if(any(!is.finite(x_control))) stop("Non-numeric values in x_control")
+    if(any(!is.finite(x_moderate))) stop("Non-numeric values in x_moderate")
+    if(any(!is.finite(pihat))) stop("Non-numeric values in pihat")
+    if(!all(sort(unique(z)) == c(0,1))) stop("z must be a vector of 0's and 1's, with at least one of each")
+    if(!(keep_trees %in% c(TRUE,FALSE))) stop("keep_trees must be TRUE or FALSE")
+    if(!(continuous_tree_save %in% c(TRUE,FALSE))) stop("continuous_tree_save must be TRUE or FALSE")
+    if (keep_trees & !is.null(save_tree_directory)) stop("Can\'t both save trees and keep trees; set save_tree_directory to NULL")
+    if (keep_trees & continuous_tree_save) stop("Can\'t both keep trees and write them continuously; set continuous_tree_save to FALSE")
+    if(!use_tauscale & block_b0_b1) stop('Can\'t block b0 and b1 if tauscale is not used')
+    if(!(abcf %in% c(TRUE,FALSE))) stop("abcf must be TRUE or FALSE")
+    if(!(ibcf %in% c(TRUE,FALSE))) stop("ibcf must be TRUE or FALSE")
+    if(abcf|ibcf) {
+        if(round(batch_size)!=batch_size | batch_size<1) stop("batch_size must be an integer larger than 0")
+    }
+    if (ibcf) {
+        if(is.null(ate_prior_sd)) stop("must supply ate_prior_sd when using iBCF")
+        if(!is.numeric(ate_prior_sd) | ate_prior_sd<=0) stop("ate_prior_sd must be a positive number")
+    }
+    if(abcf & ibcf) {
+        stop('Can\'t do both aBCF and iBCF')
+    }
+    if(!(verbose %in% 0:4)) stop("verbose must be an integer from 0 to 4")
 
-    names(fitbcf$acceptance) = c('sigma_y','sigma_u','sigma_v','rho')
+    if(length(unique(y))<5) warning("y appears to be discrete")
 
-    list(sigma_y    = sdy*fitbcf$sigma_y,
-         sigma_u    = sdy*fitbcf$sigma_u,
-         sigma_v    = sdy*fitbcf$sigma_v,
-         rho        = fitbcf$rho,
-         sigma_i    = sigma_i,
-         yhat       = yhat_post,
-         sdy        = sdy,
-         con_sd     = con_sd,
-         mod_sd     = mod_sd,
-         muy        = muy,
-         mu         = mu_post,
-         tau        = tau_post,
-         u          = u_post,
-         v          = v_post,
-         mu_scale   = fitbcf$msd,
-         tau_scale  = fitbcf$bsd,
-         b0         = fitbcf$b0,
-         b1         = fitbcf$b1,
-         delta_mu   = fitbcf$delta_con,
-         acceptance = fitbcf$acceptance,
-         perm       = perm,
-         include_pi = include_pi,
-         abcf = abcf,
-         ibcf = ibcf,
-         ate_prior_sd = sdy*ate_prior_sd,
-         random_seed=this_seed,
-         con_trees = fitbcf$con_trees,
-         mod_trees = fitbcf$mod_trees
-    )
+    if(nburn<0) stop("nburn must be positive")
+    if(nsim<0) stop("nsim must be positive")
+    if(nthin<0) stop("nthin must be positive")
+    if(nthin>nsim+1) stop("nthin must be < nsim")
+    if(nburn<1000) warning("A low (<1000) value for nburn was supplied")
+    if(nsim*nburn<1000) warning("A low (<1000) value for total iterations after burn-in was supplied")
+    if (use_tauscale & !identical(x_control, x_moderate)) {
+        warning("Different covariate matrices supplied to x_control and x_moderate, but tau_scale is set to TRUE. When use_tauscale is TRUE, all covariates in x_moderate can still affect mu (but covariates in x_control cannot affect tau)")
+    }
+    if ((abcf|ibcf) & length(unique(w))==1) {
+        warning('aBCF and iBCF models are not identified without weights')
+    }
 
-  }
 
-  if (!ibcf & !abcf) {
-    #If we're not running IBCF, remove all the iBCF-specific components
-    chain_out <- lapply(chain_out, function(x) {
-      x$sigma <- x$sigma_y
-      x$sigma_y <- x$sigma_u <- x$sigma_v <- x$rho <- x$sigma_i <- x$u <- x$v <- x$acceptance <- x$ate_prior_sd <- NULL
-      return(x)
-    })
-  } else if (!ibcf) {
-      chain_out <- lapply(chain_out, function(x) {
-          x$sigma_v <- x$rho <- x$v <- x$ate_prior_sd <- NULL
-          x$acceptance <- x$acceptance[c('sigma_y', 'sigma_u')]
-          return(x)
-      })
-  }
+    ### TODO range check on parameters
 
-  if (!keep_trees) {
-      chain_out <- lapply(chain_out, function(x) {
-          x$con_trees <- x$mod_trees <- NULL
-          return(x)
-      })
-  }
+    ###
+    x_c = matrix(x_control, ncol=ncol(x_control))
+    x_m = matrix(x_moderate, ncol=ncol(x_moderate))
 
-  fitObj <- list(raw_chains = chain_out)
+    if(include_pi=="both" | include_pi=="control") {
+        x_c = cbind(x_control, pihat)
+    }
+    if(include_pi=="both" | include_pi=="moderate") {
+        x_m = cbind(x_moderate, pihat)
+    }
+    cutpoint_list_c = lapply(1:ncol(x_c), function(i) .cp_quantile(x_c[,i]))
+    cutpoint_list_m = lapply(1:ncol(x_m), function(i) .cp_quantile(x_m[,i]))
 
-  if (!simplified_return) {
-    fitObj <- c(fitObj,
-                list(coda_chains = .extract_coda_chains(chain_out)),
-                .get_components_from_chains(chain_out))
-  }
+    sdy = sqrt(Hmisc::wtd.var(y, w))
+    muy = stats::weighted.mean(y, w)
+    yscale = (y-muy)/sdy
 
-  attr(fitObj, "class") <- "bcf"
+    if(is.null(lambda)) {
+        if(is.null(sighat)) {
+            lmf = lm(yscale~z+as.matrix(x_c), weights = w)
+            sighat = summary(lmf)$sigma #sd(y) #summary(lmf)$sigma
+        }
+        qchi = qchisq(1.0-sigq,nu)
+        lambda = (sighat*sighat*qchi)/nu
+    }
 
-  .cleanup_after_par(do_type_config)
+    #If prior sds are not given, default them to scale off of the weighted sdy
+    if (is.null(sd_control)) {
+        con_sd <- 2
+    } else {
+        con_sd = sd_control/sdy
+    }
 
-  return(fitObj)
+    if (is.null(sd_moderate)) {
+        mod_sd <- 1/ifelse(use_tauscale,0.674,1)
+    } else {
+        mod_sd = sd_moderate/sdy/ifelse(use_tauscale,0.674,1)
+    }
+
+    #If hyperprior sd isn't given, scale them off of the prior sds
+    if (is.null(sigu_hyperprior)) {
+        sigu_hyperprior <- con_sd/3
+    } else {
+        #user-entered values will should be prior medians, so convert to scale using 0.674
+        sigu_hyperprior <- sigu_hyperprior/sdy/0.674
+    }
+
+    if (ibcf) {
+        ate_prior_sd <- ate_prior_sd/sdy
+    } else {
+        ate_prior_sd <- 1
+    }
+
+    dir = tempdir()
+
+    perm = order(z, decreasing=TRUE)
+
+    RcppParallel::setThreadOptions(numThreads=n_threads)
+
+    do_type_config <- .get_do_type(n_cores, log_file)
+    `%doType%` <- do_type_config$doType
+
+    chain_out <- foreach::foreach(iChain=1:n_chains) %doType% {
+
+        this_seed = random_seed + iChain - 1
+
+        cat("Calling bcfoverparRcppClean From R\n")
+        set.seed(this_seed)
+
+        tree_files = .get_chain_tree_files(save_tree_directory, iChain)
+
+        fitbcf = bcfoverparRcppClean(y_ = yscale[perm], z_ = z[perm], w_ = w[perm],
+                                     x_con_ = t(x_c[perm,,drop=FALSE]), x_mod_ = t(x_m[perm,,drop=FALSE]),
+                                     x_con_info_list = cutpoint_list_c,
+                                     x_mod_info_list = cutpoint_list_m,
+                                     burn = nburn, nd = nsim, thin = nthin,
+                                     ntree_mod = ntree_moderate, ntree_con = ntree_control,
+                                     lambda = lambda, nu = nu,
+                                     con_sd = con_sd,
+                                     mod_sd = mod_sd, # if HN make sd_moderate the prior median
+                                     mod_alpha = base_moderate,
+                                     mod_beta = power_moderate,
+                                     con_alpha = base_control,
+                                     con_beta = power_control,
+                                     treef_con_name_ = tree_files$con_trees,
+                                     treef_mod_name_ = tree_files$mod_trees,
+                                     keep_trees = keep_trees,
+                                     continuous_tree_save=continuous_tree_save,
+                                     status_interval = update_interval,
+                                     use_mscale = use_muscale, use_bscale = use_tauscale,
+                                     b_half_normal = TRUE,
+                                     abcf=abcf, ibcf=ibcf,
+                                     batch_size=batch_size, acceptance_target=0.44,
+                                     verbose=verbose,
+                                     block_b0_b1=block_b0_b1,
+                                     sigu_hyperprior=sigu_hyperprior,
+                                     ate_prior_sd=ate_prior_sd)
+
+        cat("bcfoverparRcppClean returned to R\n")
+
+        ac = fitbcf$m_post[,order(perm)]
+
+        Tm = fitbcf$b_post[,order(perm)] * (1.0/ (fitbcf$b1 - fitbcf$b0))
+
+        Tc = ac * (1.0/fitbcf$msd)
+
+        tau_post = sdy*fitbcf$b_post[,order(perm)]
+
+        mu_post  = muy + sdy*(Tc*fitbcf$msd + Tm*fitbcf$b0)
+
+        yhat_post = muy + sdy*fitbcf$yhat_post[,order(perm)]
+
+        u_post = sdy*fitbcf$u[,order(perm)]
+
+        v_post = sdy*fitbcf$v[,order(perm)]
+
+        if (abcf) {
+            mu_post    <- mu_post   + u_post
+            yhat_post  <- yhat_post + u_post
+        } else if (ibcf) {
+            tau_post   <- tau_post  + v_post
+            mu_post    <- mu_post   + u_post
+            yhat_post  <- yhat_post + u_post + t(t(v_post) * z)
+        }
+
+        sigma_i = sdy*fitbcf$sigma_i[,order(perm)]
+
+        names(fitbcf$acceptance) = c('sigma_y','sigma_u','sigma_v','rho')
+
+        list(sigma_y    = sdy*fitbcf$sigma_y,
+             sigma_u    = sdy*fitbcf$sigma_u,
+             sigma_v    = sdy*fitbcf$sigma_v,
+             rho        = fitbcf$rho,
+             sigma_i    = sigma_i,
+             yhat       = yhat_post,
+             sdy        = sdy,
+             con_sd     = con_sd,
+             mod_sd     = mod_sd,
+             muy        = muy,
+             mu         = mu_post,
+             tau        = tau_post,
+             u          = u_post,
+             v          = v_post,
+             mu_scale   = fitbcf$msd,
+             tau_scale  = fitbcf$bsd,
+             b0         = fitbcf$b0,
+             b1         = fitbcf$b1,
+             delta_mu   = fitbcf$delta_con,
+             acceptance = fitbcf$acceptance,
+             perm       = perm,
+             include_pi = include_pi,
+             abcf = abcf,
+             ibcf = ibcf,
+             ate_prior_sd = sdy*ate_prior_sd,
+             random_seed=this_seed,
+             con_trees = fitbcf$con_trees,
+             mod_trees = fitbcf$mod_trees
+        )
+
+    }
+
+    if (!ibcf & !abcf) {
+        #If we're not running IBCF, remove all the iBCF-specific components
+        chain_out <- lapply(chain_out, function(x) {
+            x$sigma <- x$sigma_y
+            x$sigma_y <- x$sigma_u <- x$sigma_v <- x$rho <- x$sigma_i <- x$u <- x$v <- x$acceptance <- x$ate_prior_sd <- NULL
+            return(x)
+        })
+    } else if (!ibcf) {
+        chain_out <- lapply(chain_out, function(x) {
+            x$sigma_v <- x$rho <- x$v <- x$ate_prior_sd <- NULL
+            x$acceptance <- x$acceptance[c('sigma_y', 'sigma_u')]
+            return(x)
+        })
+    }
+
+    if (!keep_trees) {
+        chain_out <- lapply(chain_out, function(x) {
+            x$con_trees <- x$mod_trees <- NULL
+            return(x)
+        })
+    }
+
+    fitObj <- list(raw_chains = chain_out)
+
+    if (!simplified_return) {
+        fitObj <- c(fitObj,
+                    list(coda_chains = .extract_coda_chains(chain_out)),
+                    .get_components_from_chains(chain_out))
+    }
+
+    attr(fitObj, "class") <- "bcf"
+
+    .cleanup_after_par(do_type_config)
+
+    return(fitObj)
 }
 
 #' Summarize method for bcf() fitted object
@@ -690,45 +690,45 @@ summary.bcf <- function(object,
                         ...,
                         params_2_summarise = NULL){
 
-  if (!is.null(params_2_summarise)) {
+    if (!is.null(params_2_summarise)) {
 
-  } else if (is.null(params_2_summarise) & is.null(object$include_random_effects)) {
-    params_2_summarise <- c('sigma','tau_bar','mu_bar','yhat_bar')
-  } else if (is.null(params_2_summarise) & !object$include_random_effects) {
-    params_2_summarise <- c('sigma','tau_bar','mu_bar','yhat_bar')
-  } else if (is.null(params_2_summarise) & object$include_random_effects) {
-    params_2_summarise <- c('sigma_y','sigma_u','sigma_v','rho','tau_bar','mu_bar','yhat_bar')
-  }
-
-  chains_2_summarise <- object$coda_chains[,params_2_summarise]
-
-  message("Summary statistics for each Markov Chain Monte Carlo run")
-  print(summary(chains_2_summarise))
-
-  cat("\n----\n\n")
-
-
-  message("Effective sample size for summary parameters")
-
-  ef = function(e) {
-    if(e$message == "unused argument (crosschain = TRUE)") {
-      cat("Reverting to coda's default ESS calculation. See ?summary.bcf for details.\n\n")
-      print(coda::effectiveSize(chains_2_summarise))
-    } else {
-      stop(e)
+    } else if (is.null(params_2_summarise) & is.null(object$include_random_effects)) {
+        params_2_summarise <- c('sigma','tau_bar','mu_bar','yhat_bar')
+    } else if (is.null(params_2_summarise) & !object$include_random_effects) {
+        params_2_summarise <- c('sigma','tau_bar','mu_bar','yhat_bar')
+    } else if (is.null(params_2_summarise) & object$include_random_effects) {
+        params_2_summarise <- c('sigma_y','sigma_u','sigma_v','rho','tau_bar','mu_bar','yhat_bar')
     }
-  }
-  tryCatch(print(coda::effectiveSize(chains_2_summarise, crosschain = TRUE)),
-           error = ef)
-  cat("\n----\n\n")
 
+    chains_2_summarise <- object$coda_chains[,params_2_summarise]
 
-  if (length(chains_2_summarise) > 1){
-    message("Gelman and Rubin's convergence diagnostic for summary parameters")
-    print(coda::gelman.diag(chains_2_summarise, autoburnin = FALSE))
+    message("Summary statistics for each Markov Chain Monte Carlo run")
+    print(summary(chains_2_summarise))
+
     cat("\n----\n\n")
 
-  }
+
+    message("Effective sample size for summary parameters")
+
+    ef = function(e) {
+        if(e$message == "unused argument (crosschain = TRUE)") {
+            cat("Reverting to coda's default ESS calculation. See ?summary.bcf for details.\n\n")
+            print(coda::effectiveSize(chains_2_summarise))
+        } else {
+            stop(e)
+        }
+    }
+    tryCatch(print(coda::effectiveSize(chains_2_summarise, crosschain = TRUE)),
+             error = ef)
+    cat("\n----\n\n")
+
+
+    if (length(chains_2_summarise) > 1){
+        message("Gelman and Rubin's convergence diagnostic for summary parameters")
+        print(coda::gelman.diag(chains_2_summarise, autoburnin = FALSE))
+        cat("\n----\n\n")
+
+    }
 
 }
 
@@ -747,6 +747,7 @@ summary.bcf <- function(object,
 #' @param pi_pred propensity score for prediction
 #' @param save_tree_directory directory where the trees have been saved
 #' @param n_cores An optional integer of the number of cores to run your MCMC chains on
+#' @param skip_con Whether to skip prediction of mu, and only report tau
 #' @examples
 #'\donttest{
 #'
@@ -803,143 +804,171 @@ summary.bcf <- function(object,
 #'}
 #' @export
 predict.bcf <- function(object,
-                        x_predict_control,
+                        x_predict_control=NULL,
                         x_predict_moderate,
                         pi_pred,
                         z_pred,
                         save_tree_directory=NULL,
                         n_cores=2,
+                        skip_con=FALSE,
                         ...) {
 
-  if(any(is.na(x_predict_moderate))) stop("Missing values in x_predict_moderate")
-  if(any(is.na(x_predict_control))) stop("Missing values in x_predict_control")
-  if(any(is.na(z_pred))) stop("Missing values in z_pred")
-  if(any(!is.finite(x_predict_moderate))) stop("Non-numeric values in x_pred_moderate")
-  if(any(!is.finite(x_predict_control))) stop("Non-numeric values in x_pred_control")
-  if(any(!is.finite(pi_pred))) stop("Non-numeric values in pi_pred")
-  if(!all(sort(unique(z_pred)) == c(0,1))) stop("z_pred must be a vector of 0's and 1's, with at least one of each")
+    if (skip_con) {
+        x_predict_control <- matrix(1, nrow(x_predict_moderate))
+    }
 
-  if((is.null(x_predict_moderate) & !is.null(x_predict_control)) | (!is.null(x_predict_moderate) & is.null(x_predict_control))) {
-    stop("If you want to predict, you need to add values to both x_pred_control and x_pred_moderate")
-  }
+    if (is.null(x_predict_control) & !skip_con) {
+        stop('If you want to predict mu, you need to add values to x_pred_control')
+    }
 
-  pi_pred = as.matrix(pi_pred)
-  if(!.ident(length(z_pred),
-             nrow(x_predict_moderate),
-             nrow(x_predict_control),
-             nrow(pi_pred))
-  ) {
-    stop("Data size mismatch. The following should all be equal:
+    if (any(is.na(x_predict_moderate)))      stop("Missing values in x_predict_moderate")
+    if (any(is.na(x_predict_control)))       stop("Missing values in x_predict_control")
+    if (any(is.na(z_pred)))                  stop("Missing values in z_pred")
+    if (any(!is.finite(x_predict_moderate))) stop("Non-numeric values in x_pred_moderate")
+    if (any(!is.finite(x_predict_control)))  stop("Non-numeric values in x_pred_control")
+    if (any(!is.finite(pi_pred)))            stop("Non-numeric values in pi_pred")
+    if (any(!(z_pred %in% c(0,1))))          stop('z_pred must be 0s and 1s only')
+
+    if((is.null(x_predict_moderate) & !is.null(x_predict_control)) | (!is.null(x_predict_moderate) & is.null(x_predict_control))) {
+        stop("If you want to predict, you need to add values to both x_pred_control and x_pred_moderate")
+    }
+
+    pi_pred = as.matrix(pi_pred)
+    if(!.ident(length(z_pred),
+               nrow(x_predict_moderate),
+               nrow(x_predict_control),
+               nrow(pi_pred))
+    ) {
+        stop("Data size mismatch. The following should all be equal:
             length(z_pred): ", length(z_pred), "\n",
-         "nrow(x_pred_moderate): ", nrow(x_predict_moderate), "\n",
-         "nrow(x_pred_control): ", nrow(x_predict_control), "\n",
-         "nrow(pi_pred): ", nrow(pi_pred), "\n"
-    )
-  }
+             "nrow(x_pred_moderate): ", nrow(x_predict_moderate), "\n",
+             "nrow(x_pred_control): ", nrow(x_predict_control), "\n",
+             "nrow(pi_pred): ", nrow(pi_pred), "\n"
+        )
+    }
 
+    cat("Initializing BCF Prediction\n")
+    x_pm = matrix(x_predict_moderate, ncol=ncol(x_predict_moderate))
+    x_pc = matrix(x_predict_control, ncol=ncol(x_predict_control))
 
-  cat("Initializing BCF Prediction\n")
-  x_pm = matrix(x_predict_moderate, ncol=ncol(x_predict_moderate))
-  x_pc = matrix(x_predict_control, ncol=ncol(x_predict_control))
+    if(object$raw_chains[[1]]$include_pi=="both" | object$raw_chains[[1]]$include_pi=="control") {
+        x_pc = cbind(x_predict_control, pi_pred)
+    }
+    if(object$raw_chains[[1]]$include_pi=="both" | object$raw_chains[[1]]$include_pi=="moderate") {
+        x_pm = cbind(x_predict_moderate, pi_pred)
+    }
 
-  if(object$raw_chains[[1]]$include_pi=="both" | object$raw_chains[[1]]$include_pi=="control") {
-    x_pc = cbind(x_predict_control, pi_pred)
-  }
-  if(object$raw_chains[[1]]$include_pi=="both" | object$raw_chains[[1]]$include_pi=="moderate") {
-    x_pm = cbind(x_predict_moderate, pi_pred)
-  }
+    n_chains = length(object$raw_chains)
 
-  n_chains = length(object$raw_chains)
+    if (is.null(save_tree_directory)) {
+        if (is.null(object$raw_chains[[1]]$con_trees) | is.null(object$raw_chains[[1]]$mod_trees)) {
+            stop('Must providee tree directory if trees not included in fit')
+        }
+        save_tree_directory <- tempdir()
+        for (i in 1:n_chains) {
+            writeLines(object$raw_chains[[i]]$con_trees, file.path(save_tree_directory, paste('con_trees', i, 'txt', sep='.')))
+            writeLines(object$raw_chains[[i]]$mod_trees, file.path(save_tree_directory, paste('mod_trees', i, 'txt', sep='.')))
+        }
+    }
 
-  if (is.null(save_tree_directory)) {
-      if (is.null(object$raw_chains[[1]]$con_trees) | is.null(object$raw_chains[[1]]$mod_trees)) {
-          stop('Must providee tree directory if trees not included in fit')
-      }
-      save_tree_directory <- tempdir()
-      for (i in 1:n_chains) {
-          writeLines(object$raw_chains[[i]]$con_trees, file.path(save_tree_directory, paste('con_trees', i, 'txt', sep='.')))
-          writeLines(object$raw_chains[[i]]$mod_trees, file.path(save_tree_directory, paste('mod_trees', i, 'txt', sep='.')))
-      }
-  }
+    files_not_found <- c()
+    for (i in 1:n_chains) {
+        cfnm <- file.path(save_tree_directory, paste('con_trees', i, 'txt', sep='.'))
+        if (!skip_con & !file.exists(cfnm)) {
+            files_not_found <- c(files_not_found, cfnm)
+        }
 
-  cat("Starting Prediction \n")
+        mfnm <- file.path(save_tree_directory, paste('mod_trees', i, 'txt', sep='.'))
+        if (!file.exists(mfnm)) {
+            files_not_found <- c(files_not_found, mfnm)
+        }
+    }
 
-  templog = tempfile()
-  do_type_config <- .get_do_type(n_cores,templog)
-  `%doType%` <- do_type_config$doType
+    if (length(files_not_found)>0) {
+        stop(paste('Could not find expected files ', paste(files_not_found, collapse=', ')))
+    }
 
-  chain_out <- foreach::foreach(iChain=1:n_chains) %doType% {
+    cat("Starting Prediction \n")
 
-    tree_files = .get_chain_tree_files(save_tree_directory, iChain)
+    templog = tempfile()
+    do_type_config <- .get_do_type(n_cores,templog)
+    `%doType%` <- do_type_config$doType
 
-    cat("Starting to Predict Chain ", iChain, "\n")
+    chain_out <- foreach::foreach(iChain=1:n_chains) %doType% {
 
-    mods = TreeSamples$new()
-    mods$load(tree_files$mod_trees)
-    Tm = mods$predict(t(x_pm))
+        tree_files = .get_chain_tree_files(save_tree_directory, iChain)
 
-    cons = TreeSamples$new()
-    cons$load(tree_files$con_trees)
-    Tc = cons$predict(t(x_pc))
+        cat("Starting to Predict Chain ", iChain, "\n")
 
+        mods = TreeSamples$new()
+        mods$load(tree_files$mod_trees)
+        Tm = mods$predict(t(x_pm))
 
-    list(Tm = Tm,
-         Tc = Tc)
-  }
+        if (!skip_con) {
+            cons = TreeSamples$new()
+            cons$load(tree_files$con_trees)
+            Tc = cons$predict(t(x_pc))
+        } else {
+            Tc = matrix(0, nrow(Tm), ncol(Tm))
+        }
 
-  all_yhat = c()
-  all_mu   = c()
-  all_tau  = c()
+        list(Tm = Tm,
+             Tc = Tc)
+    }
 
-  chain_list=list()
+    all_yhat = c()
+    all_mu   = c()
+    all_tau  = c()
 
-  muy = object$raw_chains[[1]]$muy
+    chain_list=list()
 
-  sdy = object$raw_chains[[1]]$sdy
+    muy = object$raw_chains[[1]]$muy
 
-  for (iChain in 1:n_chains){
+    sdy = object$raw_chains[[1]]$sdy
 
+    for (iChain in 1:n_chains){
+        # Extract Chain Specific Information
+        Tm = chain_out[[iChain]]$Tm
+        Tc = chain_out[[iChain]]$Tc
 
-    # Extract Chain Specific Information
+        this_chain_bcf_out = object$raw_chains[[iChain]]
 
-    Tm = chain_out[[iChain]]$Tm
-    Tc = chain_out[[iChain]]$Tc
+        b1 = this_chain_bcf_out$b1
+        b0 = this_chain_bcf_out$b0
+        mu_scale = this_chain_bcf_out$mu_scale
 
-    this_chain_bcf_out = object$raw_chains[[iChain]]
+        # Calculate, tau, y, and mu
+        mu  = muy + sdy*(Tc*mu_scale + Tm*b0)
+        tau = sdy*(b1 - b0)*Tm
+        yhat = mu + t(t(tau)*z_pred)
 
-    b1 = this_chain_bcf_out$b1
-    b0 = this_chain_bcf_out$b0
-    mu_scale = this_chain_bcf_out$mu_scale
+        # Package Output up
+        all_yhat = rbind(all_yhat, yhat)
+        all_mu   = rbind(all_mu,   mu)
+        all_tau  = rbind(all_tau,  tau)
 
+        if (!skip_con) {
+            scalar_df <- data.frame("tau_bar"   = matrixStats::rowWeightedMeans(tau, w=NULL),
+                                    "mu_bar"    = matrixStats::rowWeightedMeans(mu, w=NULL),
+                                    "yhat_bar"  = matrixStats::rowWeightedMeans(yhat, w=NULL))
+        } else {
+            scalar_df <- data.frame("tau_bar"   = matrixStats::rowWeightedMeans(tau, w=NULL))
+        }
 
+        chain_list[[iChain]] <- coda::as.mcmc(scalar_df)
+    }
 
-    # Calculate, tau, y, and mu
+    .cleanup_after_par(do_type_config)
 
+    if (!skip_con) {
+        result <- list(tau = all_tau,
+                       mu = all_mu,
+                       yhat = all_yhat,
+                       coda_chains = coda::as.mcmc.list(chain_list))
+    } else {
+        result <- list(tau = all_tau,
+                       coda_chains = coda::as.mcmc.list(chain_list))
+    }
 
-    mu  = muy + sdy*(Tc*mu_scale + Tm*b0)
-    tau = sdy*(b1 - b0)*Tm
-    yhat = mu + t(t(tau)*z_pred)
-
-
-    # Package Output up
-    all_yhat = rbind(all_yhat, yhat)
-    all_mu   = rbind(all_mu,   mu)
-    all_tau  = rbind(all_tau,  tau)
-
-
-
-    scalar_df <- data.frame("tau_bar"   = matrixStats::rowWeightedMeans(tau, w=NULL),
-                            "mu_bar"    = matrixStats::rowWeightedMeans(mu, w=NULL),
-                            "yhat_bar"  = matrixStats::rowWeightedMeans(yhat, w=NULL))
-
-    chain_list[[iChain]] <- coda::as.mcmc(scalar_df)
-  }
-
-  .cleanup_after_par(do_type_config)
-
-
-  list(tau = all_tau,
-       mu = all_mu,
-       yhat = all_yhat,
-       coda_chains = coda::as.mcmc.list(chain_list))
+    return(result)
 }

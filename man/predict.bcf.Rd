@@ -6,12 +6,13 @@
 \usage{
 \method{predict}{bcf}(
   object,
-  x_predict_control,
+  x_predict_control = NULL,
   x_predict_moderate,
   pi_pred,
   z_pred,
   save_tree_directory = NULL,
   n_cores = 2,
+  skip_con = FALSE,
   ...
 )
 }
@@ -29,6 +30,8 @@
 \item{save_tree_directory}{directory where the trees have been saved}
 
 \item{n_cores}{An optional integer of the number of cores to run your MCMC chains on}
+
+\item{skip_con}{Whether to skip prediction of mu, and only report tau}
 
 \item{...}{additional arguments affecting the predictions produced.}
 }
