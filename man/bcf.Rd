@@ -96,6 +96,8 @@ bcf(
 
 \item{save_tree_directory}{Specify where trees should be saved. Keep track of this for predict(). Defaults to working directory. Setting to NULL skips writing of trees.}
 
+\item{keep_trees}{Whether to return trees as part of the fit object. Defaults to FALSE.}
+
 \item{continuous_tree_save}{Whether trees are written continuously or only once at the end}
 
 \item{log_file}{file where BCF should save its logs when running multiple chains in parallel. This file is not written to when only running one chain.}

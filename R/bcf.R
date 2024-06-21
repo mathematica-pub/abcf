@@ -216,6 +216,7 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
 #' @param base_moderate Base for tree prior on tau(x) trees (see details)
 #' @param power_moderate Power for the tree prior on tau(x) trees (see details)
 #' @param save_tree_directory Specify where trees should be saved. Keep track of this for predict(). Defaults to working directory. Setting to NULL skips writing of trees.
+#' @param keep_trees Whether to return trees as part of the fit object. Defaults to FALSE.
 #' @param continuous_tree_save Whether trees are written continuously or only once at the end
 #' @param log_file file where BCF should save its logs when running multiple chains in parallel. This file is not written to when only running one chain.
 #' @param nu Degrees of freedom in the chisq prior on \eqn{sigma^2}
@@ -426,6 +427,20 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
         warning('aBCF and iBCF models are not identified without weights')
     }
 
+    #Check logs and trees are writeable
+    if (n_chains>1 & n_cores>1 & !is.null(log_file)) {
+        can_make_log <- file.create(log_file)
+        if (!can_make_log) {
+            stop(paste('Could not write to log file', log_file))
+        }
+    }
+
+    if (!is.null(save_tree_directory)) {
+        can_make_trees <- file.create(file.path(save_tree_directory,'con_trees.1.txt'))
+        if (!can_make_trees) {
+            stop(paste('Could not write to tree directory', save_tree_directory))
+        }
+    }
 
     ### TODO range check on parameters
 
