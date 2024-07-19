@@ -25,7 +25,7 @@ Rcpp::loadModule(module = "TreeSamples", TRUE)
         xx = sort(unique(x))
         ret = xx[-length(xx)] + diff(xx)/2
     } else {
-        q = approxfun(sort(x),quantile(x,p = 0:(nobs-1)/nobs))
+        q = suppressWarnings(approxfun(sort(x),quantile(x,p = 0:(nobs-1)/nobs)))
         ind = seq(min(x),max(x),length.out=num)
         ret = q(ind)
     }
