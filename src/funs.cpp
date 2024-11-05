@@ -785,9 +785,10 @@ void drmu(tree& t, xinfo& xi, dinfo& di, pinfo& pi, double* weight, RNG& gen)
 	
 	for(tree::npv::size_type i=0;i!=bnv.size();i++) {
 	
-		double fcvar = 1.0/(1.0/(pi.tau * pi.tau)+sv[i].n);
-		double fcmean = sv[i].sy*fcvar;
-		bnv[i]->setm(fcmean + gen.normal()*sqrt(fcvar));
+		//double fcvar = 1.0/(1.0/(pi.tau * pi.tau)+sv[i].n);
+		//double fcmean = sv[i].sy*fcvar;
+		double fcvar = 1.0/(1.0/(pi.tau * pi.tau));
+		bnv[i]->setm(gen.normal()*sqrt(fcvar));
 
 	  if(bnv[i]->getm() != bnv[i]->getm()) { 
 		for(int j=0; j<di.n; ++j) Rcout << *(di.x + j*di.p) <<" "; //*(x + p*i+j)

@@ -106,18 +106,17 @@ bool bd(tree& x, xinfo& xi, dinfo& di, double* phi, pinfo& pi, RNG& gen, Logger 
       double alpha=0.0,alpha1=0.0,alpha2=0.0;
       double lill=0.0,lilr=0.0,lilt=0.0;
       if((sl.n0>4) && (sr.n0>4)) { //do we actually want this? yep
-         lill = lil(sl.n,sl.sy,pi.tau);
-         lilr = lil(sr.n,sr.sy,pi.tau);
-         lilt = lil(sl.n+sr.n,sl.sy+sr.sy,pi.tau);
+         //lill = lil(sl.n,sl.sy,pi.tau);
+         //lilr = lil(sr.n,sr.sy,pi.tau);
+         //lilt = lil(sl.n+sr.n,sl.sy+sr.sy,pi.tau);
    
          alpha1 = (PGnx*(1.0-PGly)*(1.0-PGry)*PDy*Pnogy)/((1.0-PGnx)*PBx*Pbotx); //alpha1 = prior*proposal prob
-         alpha2 = alpha1*exp(lill+lilr-lilt); //alpha2 = (prior*proposal prob) * (likelihood)
-         alpha = std::min(1.0,alpha2);
+         //alpha2 = alpha1*exp(lill+lilr-lilt); //alpha2 = (prior*proposal prob) * (likelihood)
+         alpha = std::min(1.0,alpha1);
       } else {
          alpha=0.0;
       }
       
-
       //--------------------------------------------------
       //finally ready to try metrop
       double a,b,s2,yb;
@@ -183,14 +182,13 @@ bool bd(tree& x, xinfo& xi, dinfo& di, double* phi, pinfo& pi, RNG& gen, Logger 
       //--------------------------------------------------
       //compute alpha
 
-      double lill = lil(sl.n,sl.sy,pi.tau);
-      double lilr = lil(sr.n,sr.sy,pi.tau);
-      double lilt = lil(sl.n+sr.n,sl.sy+sr.sy,pi.tau);
+      //double lill = lil(sl.n,sl.sy,pi.tau);
+      //double lilr = lil(sr.n,sr.sy,pi.tau);
+      //double lilt = lil(sl.n+sr.n,sl.sy+sr.sy,pi.tau);
 
       double alpha1 = ((1.0-PGny)*PBy*Pboty)/(PGny*(1.0-PGlx)*(1.0-PGrx)*PDx*Pnogx);
-      double alpha2 = alpha1*exp(lilt - lill - lilr);
-      double alpha = std::min(1.0,alpha2);
-
+      //double alpha2 = alpha1*exp(lilt - lill - lilr);
+      double alpha = std::min(1.0,alpha1);
 
       //--------------------------------------------------
       //finally ready to try metrop

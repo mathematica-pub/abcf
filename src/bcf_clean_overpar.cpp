@@ -207,8 +207,15 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   //prior parameters
   // PX scale parameter for b: 
   double bscale_prec = 2;
-  double bscale0 = -0.5;
-  double bscale1 = 0.5;
+  double bscale0;
+  double bscale1;
+  if (use_bscale) {
+    bscale0 = -0.5;
+    bscale1 = 0.5;
+  } else {
+    bscale0 = 0.0;
+    bscale1 = 1.0;
+  }
 
   double mscale_prec = 1.0;
   double mscale = 1.0;
@@ -459,12 +466,12 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     update_trees("control",  
                   allfit, allfit_con, 
                   mscale, bscale0, bscale1,
-                  ginfo, wi_con, verbose_itr && printTrees);
+                  ginfo, wi_con, verbose_itr && printTrees, use_bscale);
 
     update_trees("moderate",  
                   allfit, allfit_mod, 
                   mscale, bscale0, bscale1,
-                  ginfo, wi_mod, verbose_itr && printTrees);
+                  ginfo, wi_mod, verbose_itr && printTrees, use_bscale);
 
     logger.log("=====================================");
     logger.log("- MCMC iteration Cleanup");
@@ -541,7 +548,8 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   sigma_y_post, sigma_u_post, sigma_v_post, rho_post, sigma_i_post,
                   m_post, yhat_post, b_post, u_post, v_post, delta_con_post, 
                   mscale, bscale1, bscale0, ginfo, 
-                  allfit, allfit_con, allfit_mod, delta_con);
+                  allfit, allfit_con, allfit_mod, delta_con,
+                  use_bscale);
     }
 
     log_iter("End", iIter+1, nd*thin+burn, sigma_y, sigma_u, sigma_v, rho, mscale, bscale0, bscale1, logger);

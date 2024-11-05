@@ -16,9 +16,9 @@ void log_trees(std::string step, tree& t, xinfo& xi, bool verbose, Logger& logge
 
 // Desired behavior of verbose is unclear to me, since it is hardcoded originally.
 void update_trees(std::string context,
-                  double* allfit, double* allfit_spec, 
+                  double* allfit, double* allfit_spec,
                   double mscale, double bscale0, double bscale1,
-                  ginfo& gi, winfo& wi, bool verbose) {
+                  ginfo& gi, winfo& wi, bool verbose, bool use_bscale) {
     char logBuff[100];
 
     for(size_t iTree=0;iTree<wi.ntree;iTree++) {
@@ -30,12 +30,12 @@ void update_trees(std::string context,
       gi.logger.startContext();
 
       log_trees("pre update", wi.t[iTree], wi.xi, verbose, gi.logger);
-      
+
       fit(wi.t[iTree], // tree& t
           wi.xi, // xinfo& xi
           wi.di, // dinfo& di
           gi.ftemp);
-      
+
       log_trees("post first call to fit", wi.t[iTree], wi.xi, verbose, gi.logger);
 
       for(size_t k=0;k<gi.n;k++) {
@@ -47,8 +47,12 @@ void update_trees(std::string context,
 
         allfit[k]      = allfit[k]      -wi.scale_idx[k]*gi.ftemp[k];
         allfit_spec[k] = allfit_spec[k] -wi.scale_idx[k]*gi.ftemp[k];
-        
-        wi.ri[k] = (gi.y[k]-allfit[k])/wi.scale_idx[k];
+
+        if (!use_bscale && context=="moderate") {
+          wi.ri[k] = (gi.y[k]-allfit[k]);
+        } else {
+          wi.ri[k] = (gi.y[k]-allfit[k])/wi.scale_idx[k];
+        }
 
         if(wi.ri[k] != wi.ri[k]) {
           Rcpp::Rcout << (gi.y[k]-allfit[k]) << std::endl;
@@ -61,7 +65,7 @@ void update_trees(std::string context,
       if(verbose){
         gi.logger.getVectorHead(wi.weight, logBuff);
         Rcpp::Rcout << "\n weight: " <<  logBuff << "\n\n";
-      } 
+      }
       gi.logger.log("Starting birth / death processing");
       gi.logger.startContext();
       bd(wi.t[iTree], // tree& x
@@ -103,7 +107,7 @@ void update_trees(std::string context,
       }
 
       log_trees("post second call to fit", wi.t[iTree], wi.xi, verbose, gi.logger);
-      
+
       gi.logger.stopContext();
     }
 }
@@ -113,7 +117,7 @@ void calculate_rwww(int start, int stop, double* sigma2_i, double scale, double*
     double scale_factor, r;
     for(size_t k=start; k<stop; ++k) {
         scale_factor = (allfit_spec[k]*allfit_spec[k])/(sigma2_i[k]*scale2);
-        
+
         if(scale_factor!=scale_factor) {
           Rcpp::Rcout << " scale_factor " << scale_factor << endl;
           Rcpp::stop("NaN in scale factor");
@@ -121,7 +125,7 @@ void calculate_rwww(int start, int stop, double* sigma2_i, double scale, double*
 
         // numerator is what's unexplained by the other factor
         r = (y[k] - allfit_alt[k])*scale/allfit_spec[k];
-        
+
         if(r!=r) {
           Rcpp::Rcout << " individual " << k << " r " << r << endl;
           Rcpp::stop("NaN in r");
@@ -136,8 +140,9 @@ void draw_scale(double& scale, double scale_prec, double ww, double rw, RNG& gen
     logger.startContext();
 
     double scale_old = scale;
-    double scale_fc_var = 1/(ww + scale_prec);
-    scale = scale_fc_var*rw + gen.normal(0., 1.)*sqrt(scale_fc_var);
+    //double scale_fc_var = 1/(ww + scale_prec);
+    //scale = scale_fc_var*rw + gen.normal(0., 1.)*sqrt(scale_fc_var);
+    scale = gen.normal(0., 1.)*sqrt(1/scale_prec);
     if(verbose){
         Rcpp::Rcout << "Original : " << scale_old << "\n";
         Rcpp::Rcout << "scale_prec : " << scale_prec << ", ww : " << ww << ", rw : " << rw << "\n";
@@ -147,7 +152,9 @@ void draw_scale(double& scale, double scale_prec, double ww, double rw, RNG& gen
 }
 
 void draw_delta(std::vector<tree>& t, pinfo& pi, double& delta, RNG& gen) {
+ 
   int ntree = t.size();
+
   double ssq = 0.0;
   tree::npv bnv;
   typedef tree::npv::size_type bvsz;
@@ -165,6 +172,8 @@ void draw_delta(std::vector<tree>& t, pinfo& pi, double& delta, RNG& gen) {
     }
   }
   delta = gen.gamma(0.5*(1. + endnode_count), 1.0)/(0.5*(1 + ssq));
+  
+  //delta = gen.gamma(0.5, 1.0)/(0.5);
 }
 
 void update_pi(winfo& wi, Logger& logger, bool verbose) {
@@ -172,9 +181,9 @@ void update_pi(winfo& wi, Logger& logger, bool verbose) {
         logger.log("Updating pi.tau");
         Rcpp::Rcout << "Original pi.tau : " <<  wi.pi.tau << "\n";
     }
-      
+
     wi.pi.tau = wi.sd/(sqrt(wi.delta)*sqrt((double) wi.ntree));
-      
+
     if(verbose){
         Rcpp::Rcout << "New pi.tau : " <<  wi.pi.tau << "\n\n";
     }
@@ -186,7 +195,7 @@ void update_mscale(double& mscale,
     double ww = 0.0;
     double rw = 0.0;
 
-    calculate_rwww(0, gi.n, gi.sigma2_i, mscale, allfit_con, allfit_mod, gi.y, ww, rw);
+    //calculate_rwww(0, gi.n, gi.sigma2_i, mscale, allfit_con, allfit_mod, gi.y, ww, rw);
 
     double mscale_old = mscale;
     gi.logger.log("Drawing mscale");
@@ -197,7 +206,7 @@ void update_mscale(double& mscale,
     }
 
     draw_delta(wi.t, wi.pi, wi.delta, gi.gen) ;
-    
+
     update_pi(wi, gi.logger, verbose);
 }
 
@@ -208,8 +217,8 @@ void update_bscale(double& bscale0, double& bscale1,
     double ww0 = 0.0, ww1 = 0.0;
     double rw0 = 0.0, rw1 = 0.0;
 
-    calculate_rwww(0,       gi.ntrt, gi.sigma2_i, bscale1, allfit_mod, allfit_con, gi.y, ww1, rw1);
-    calculate_rwww(gi.ntrt, gi.n,    gi.sigma2_i, bscale0, allfit_mod, allfit_con, gi.y, ww0, rw0);
+    //calculate_rwww(0,       gi.ntrt, gi.sigma2_i, bscale1, allfit_mod, allfit_con, gi.y, ww1, rw1);
+    //calculate_rwww(gi.ntrt, gi.n,    gi.sigma2_i, bscale0, allfit_mod, allfit_con, gi.y, ww0, rw0);
 
     double bscale0_old = bscale0;
     double bscale1_old = bscale1;
@@ -239,8 +248,8 @@ void update_bscale_block(double& bscale0, double& bscale1,
     double ww0 = 0.0, ww1 = 0.0;
     double rw0 = 0.0, rw1 = 0.0;
 
-    calculate_rwww(0,       gi.ntrt, gi.sigma2_i, bscale1, allfit_mod, allfit_con, gi.y, ww1, rw1);
-    calculate_rwww(gi.ntrt, gi.n,    gi.sigma2_i, bscale0, allfit_mod, allfit_con, gi.y, ww0, rw0);
+    //calculate_rwww(0,       gi.ntrt, gi.sigma2_i, bscale1, allfit_mod, allfit_con, gi.y, ww1, rw1);
+    //calculate_rwww(gi.ntrt, gi.n,    gi.sigma2_i, bscale0, allfit_mod, allfit_con, gi.y, ww0, rw0);
 
     double bscale1_old = bscale1;
 
@@ -249,9 +258,9 @@ void update_bscale_block(double& bscale0, double& bscale1,
     gi.logger.startContext();
     // likelihood precision is sum of tau^2/sigma_i^2 for both T and C
     // prior is normal with mean 0 and var .25, so prec=4
-    double bscale_post_var = 1/(ww0 + ww1 + 4);
-    double bscale_post_mean = bscale_post_var * (rw1 - rw0);
-    bscale1 = bscale_post_mean + gi.gen.normal(0., 1.)*sqrt(bscale_post_var);
+    //double bscale_post_var = 1/(ww0 + ww1 + 4);
+    //double bscale_post_mean = bscale_post_var * (rw1 - rw0);
+    bscale1 = gi.gen.normal(0., 1.)*sqrt(1/4);
     bscale0 = -bscale1;
     if(verbose){
         Rcpp::Rcout << "Original : " << bscale1_old << "\n";
@@ -274,7 +283,7 @@ void update_bscale_block(double& bscale0, double& bscale1,
     update_pi(wi, gi.logger, verbose);
 }
 
-void initialize_sigmas(bool ibcf, double& sigma_y, double& sigma_u, double& sigma_v, double& rho, 
+void initialize_sigmas(bool ibcf, double& sigma_y, double& sigma_u, double& sigma_v, double& rho,
                         double sigu_hyperprior, double ate_prior_sd, RNG& gen) {
   // sigma_y is not changed
   sigma_u = fabs(gen.normal(0., sigu_hyperprior));
@@ -301,10 +310,10 @@ double propose_rho(double rho_current, double ls_proposal, RNG& gen) {
 arma::vec propose_sigma_v_rho(double sigma_v_current, double rho_current, arma::mat& xcov_sigma_v_rho, RNG& gen) {
   arma::rowvec xformed_current(2);
   xformed_current(0) = log(sigma_v_current);
-  xformed_current(1) = log(rho_current + 1) - log(1 - rho_current); 
+  xformed_current(1) = log(rho_current + 1) - log(1 - rho_current);
   // NB: tracked covariance matrix is already on the transformed scale
   arma::rowvec draw = mvnorm(xformed_current, xcov_sigma_v_rho, gen);
-  
+
   arma::vec proposal(2);
   proposal(0) = exp(draw(0));
   proposal(1) = (exp(draw(1))-1) / (exp(draw(1))+1);
@@ -313,14 +322,16 @@ arma::vec propose_sigma_v_rho(double sigma_v_current, double rho_current, arma::
 
 void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& gi) {
   gi.logger.log("Draw sigma");
+  /*
   double rss = 0.0;
   double restemp = 0.0;
   for(size_t k=0;k<gi.n;k++) {
     restemp = gi.y[k]-allfit[k];
     rss += gi.w[k]*restemp*restemp;
   }
+  */
 
-  sigma = sqrt((nu*lambda + rss)/gi.gen.chi_square(nu+gi.n));
+  sigma = sqrt((nu*lambda)/gi.gen.chi_square(nu));
 }
 
 void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda) {
@@ -403,7 +414,7 @@ void update_rho(ginfo& gi, double* allfit) {
   double log_prior_current, log_prior_proposed;
   log_prior_current  = (2 - 1)*log(gi.rho + 1)   + (2 - 1)*log(1 - gi.rho);
   log_prior_proposed = (2 - 1)*log(proposal + 1) + (2 - 1)*log(1 - proposal);
- 
+
   double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed);
   double log_ratio = lp_diff + log((proposal + 1) * (1 - proposal) / ((gi.rho + 1) * (1 - gi.rho)));
 
@@ -429,7 +440,7 @@ void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior) {
   double log_prior_proposed = - 0.5*proposal(0)*proposal(0) / (hyperprior * hyperprior);
   log_prior_current  += (2 - 1)*log(gi.rho + 1)      + (2 - 1)*log(1 - gi.rho);
   log_prior_proposed += (2 - 1)*log(proposal(1) + 1) + (2 - 1)*log(1 - proposal(1));
-  
+
   double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed);
   double log_ratio_jacobian = log(fabs(proposal(0)*(proposal(1)*proposal(1) - 1))) - log(fabs(gi.sigma_v*(gi.rho*gi.rho - 1)));
   double log_ratio = lp_diff + log_ratio_jacobian;
@@ -453,6 +464,7 @@ void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior) {
 // program returns the difference in the log conditional posterior betweeen the propsal and the current value
 double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed) {
   // Log likelihood requires two different sums: sum of the log of sigma_i^2, and sum of resid/sigma_i^2
+  /*
   double sum_log_sig2_i_current     = 0;
   double sum_r_over_sig2_i_current  = 0;
   double sum_log_sig2_i_proposed    = 0;
@@ -464,7 +476,7 @@ double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, do
     r2 = r*r;
     sigma2_current  = gi.sigma2_i[i];
     sigma2_proposed = gi.prop_sig2[i];
-    
+
     sum_log_sig2_i_current  += log(sigma2_current);
     sum_log_sig2_i_proposed += log(sigma2_proposed);
 
@@ -476,6 +488,8 @@ double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, do
   double lp_proposed = log_prior_proposed -0.5 * sum_log_sig2_i_proposed - 0.5 * sum_r_over_sig2_i_proposed;
 
   double lp_diff = lp_proposed - lp_current;
+  */
+  double lp_diff = log_prior_proposed - log_prior_current;
   return(lp_diff);
 }
 
@@ -492,18 +506,22 @@ void calculate_sigma2_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_
 }
 
 void draw_u(double* u, double* allfit, ginfo& gi) {
+  /*
   double v_y = gi.sigma_y*gi.sigma_y;
   double v_u = gi.sigma_u*gi.sigma_u;
   double prior_prec = 1/v_u;
   double r, data_prec, post_prec, post_sd, post_mean;
+  */
   for(size_t i=0;i<gi.n;i++) {
+    /*
     r = gi.y[i] - allfit[i];
     data_prec = gi.w[i] / (v_y);
     post_prec = prior_prec + data_prec;
     post_sd = sqrt(1/post_prec);
     post_mean = data_prec * r / post_prec;
+    */
 
-    u[i] = gi.gen.normal(post_mean, post_sd);
+    u[i] = gi.gen.normal(0, gi.sigma_u);
   }
 }
 
@@ -533,7 +551,7 @@ void draw_uv(double* u, double* v, double* allfit, ginfo& gi) {
 
     data_prec = gi.w[i] / (v_y) * (gamma * arma::trans(gamma));
     Sigma_star = arma::inv(invSigma + data_prec);
-    
+
     mu_star = arma::trans(Sigma_star * (gamma * (gi.w[i] *r / (v_y))));
 
     draw = mvnorm(mu_star, Sigma_star, gi.gen);
@@ -558,7 +576,7 @@ void update_adaptive_ls(ginfo& gi, size_t iter, int batch_size, double ac_target
   double ac_count = ac_target * (iter+1);
   // We will incrememnt the log_sigma terms by 1/# batches completed
   double ls_incr = batch_size / (iter + 1.);
-  
+
   gi.ls_sigma_y = calculate_adaptive_ls(gi.ac_sigma_y, ac_count, gi.ls_sigma_y, ls_incr);
   gi.ls_sigma_u = calculate_adaptive_ls(gi.ac_sigma_u, ac_count, gi.ls_sigma_u, ls_incr);
   gi.ls_sigma_v = calculate_adaptive_ls(gi.ac_sigma_v, ac_count, gi.ls_sigma_v, ls_incr);
@@ -575,14 +593,15 @@ double calculate_adaptive_ls(int accepted, double target, double log_sigma, doub
 }
 
 void save_values(size_t& save_ctr, int n, int ntrt,
-                Rcpp::NumericVector& msd_post, Rcpp::NumericVector& bsd_post, 
+                Rcpp::NumericVector& msd_post, Rcpp::NumericVector& bsd_post,
                 Rcpp::NumericVector& b0_post, Rcpp::NumericVector& b1_post, Rcpp::NumericVector& sigma_y_post,
-                Rcpp::NumericVector& sigma_u_post, Rcpp::NumericVector& sigma_v_post, 
+                Rcpp::NumericVector& sigma_u_post, Rcpp::NumericVector& sigma_v_post,
                 Rcpp::NumericVector& rho_post, Rcpp::NumericMatrix& sigma_i_post,
                 Rcpp::NumericMatrix& m_post, Rcpp::NumericMatrix& yhat_post, Rcpp::NumericMatrix& b_post,
-                Rcpp::NumericMatrix& u_post, Rcpp::NumericMatrix& v_post, Rcpp::NumericVector& delta_con_post, 
+                Rcpp::NumericMatrix& u_post, Rcpp::NumericMatrix& v_post, Rcpp::NumericVector& delta_con_post,
                 double mscale, double bscale1, double bscale0, ginfo& gi,
-                double* allfit, double* allfit_con, double* allfit_mod, double delta_con) {
+                double* allfit, double* allfit_con, double* allfit_mod, double delta_con,
+                bool use_bscale) {
 
   msd_post(save_ctr) = mscale;
   bsd_post(save_ctr) = bscale1-bscale0;
@@ -598,7 +617,11 @@ void save_values(size_t& save_ctr, int n, int ntrt,
   for(size_t k=0;k<n;k++) {
     m_post(save_ctr, k) = allfit_con[k];
     yhat_post(save_ctr, k) = allfit[k];
-    bscale = (k<ntrt) ? bscale1 : bscale0;
+    if (!use_bscale) {
+      bscale = 1.0;
+    } else {
+      bscale = (k<ntrt) ? bscale1 : bscale0;
+    }
     b_post(save_ctr, k) = (bscale1-bscale0)*allfit_mod[k]/bscale;
     u_post(save_ctr, k) = gi.u[k];
     v_post(save_ctr, k) = gi.v[k];

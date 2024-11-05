@@ -61,7 +61,7 @@ void log_trees(std::string step, tree& t, xinfo& xi, bool verbose, Logger& logge
 void update_trees(std::string context,
                   double* allfit, double* allfit_spec, 
                   double mscale, double bscale0, double bscale1,
-                  ginfo& gi, winfo& wi, bool verbose);
+                  ginfo& gi, winfo& wi, bool verbose, bool use_bscale);
 
 void calculate_rwww(int start, int stop, double* sigma2_i, double scale, double* allfit_spec, double* allfit_alt, std::vector<double>& y, double* w, double& ww, double& rw);
 
@@ -128,6 +128,7 @@ void save_values(size_t& save_ctr, int n, int ntrt,
                 Rcpp::NumericMatrix& m_post, Rcpp::NumericMatrix& yhat_post, Rcpp::NumericMatrix& b_post,
                 Rcpp::NumericMatrix& u_post, Rcpp::NumericMatrix& v_post, Rcpp::NumericVector& delta_con_post, 
                 double mscale, double bscale1, double bscale0, ginfo& gi,
-                double* allfit, double* allfit_con, double* allfit_mod, double delta_con);
+                double* allfit, double* allfit_con, double* allfit_mod, double delta_con,
+                bool use_bscale);
 
 #endif
