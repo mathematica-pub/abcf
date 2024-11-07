@@ -503,30 +503,15 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     logger.log("=====================================");
 
     if (use_halfnormal_scales) {
-      Rcpp::Rcout << "iter " << iIter << std::endl;
-      Rcpp::Rcout << "pre.af1 " << allfit[0] << std::endl;
-      Rcpp::Rcout << "pre.afc1 " << allfit_con[0] << std::endl;
-      Rcpp::Rcout << "pre.afm1 " << allfit_mod[0] << std::endl;
-      
-      Rcpp::Rcout << "bscale" << std::endl;
       update_scale_halfnormal(bscale1, ginfo.ls_bscale, ginfo.ac_bscale,
                               allfit, allfit_mod, 
                               allfit_proposed, allfit_mod_proposed, 
                               ginfo);
 
-      Rcpp::Rcout << "btw.af1 " << allfit[0] << std::endl;
-      Rcpp::Rcout << "btw.afc1 " << allfit_con[0] << std::endl;
-      Rcpp::Rcout << "btw.afm1 " << allfit_mod[0] << std::endl;
-      
-      Rcpp::Rcout << "mscale" << std::endl;
       update_scale_halfnormal(mscale, ginfo.ls_mscale, ginfo.ac_mscale,
                               allfit, allfit_con, 
                               allfit_proposed, allfit_con_proposed, 
                               ginfo);
-
-      Rcpp::Rcout << "post.af1 " << allfit[0] << std::endl;
-      Rcpp::Rcout << "post.afc1 " << allfit_con[0] << std::endl;
-      Rcpp::Rcout << "post.afm1 " << allfit_mod[0] << std::endl;
     } else {
       if (block_b0_b1) {
         update_bscale_block(bscale0, bscale1, 
@@ -573,10 +558,6 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
 
     if ((iIter+1) % batch_size == 0) {
       update_adaptive_ls(ginfo, iIter, batch_size, acceptance_target);
-      Rcpp::Rcout << "adapt.ls_b " << ginfo.ls_bscale << std::endl;
-      Rcpp::Rcout << "adapt.ls_m " << ginfo.ls_mscale << std::endl;
-      Rcpp::Rcout << "adapt.ac_b " << ginfo.ac_bscale << std::endl;
-      Rcpp::Rcout << "adapt.ac_m " << ginfo.ac_mscale << std::endl;
     }
 
     if( ((iIter>=burn) & (iIter % thin==0)) )  {

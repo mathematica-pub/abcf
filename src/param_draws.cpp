@@ -226,19 +226,6 @@ void update_scale_halfnormal(double& scale, double logsigma, int& ac,
 
     //Accept or reject
     double cut = gi.gen.uniform();
-
-    Rcpp::Rcout << "scale.val_curr " << scale << std::endl;
-    Rcpp::Rcout << "scale.val_prop " << proposal << std::endl;
-    Rcpp::Rcout << "scale.logprior_prop " << log_prior_current << std::endl;
-    Rcpp::Rcout << "scale.logprior_curr " << log_prior_proposed << std::endl;
-    Rcpp::Rcout << "scale.lpdiff " << lp_diff << std::endl;
-    Rcpp::Rcout << "scale.lograt " << log_ratio << std::endl;
-    Rcpp::Rcout << "scale.cut " << cut << std::endl;
-    Rcpp::Rcout << "scale.af1_curr " << allfit[0] << std::endl;
-    Rcpp::Rcout << "scale.af1_prop " << allfit_proposed[0] << std::endl;
-    Rcpp::Rcout << "scale.afs1_curr " << allfit_spec[0] << std::endl;
-    Rcpp::Rcout << "scale.afs1_prop " << allfit_spec_proposed[0] << std::endl;
-
     if (log(cut) < log_ratio) {
       gi.logger.log("Accepting proposed scale " + std::to_string(proposal));
       scale = proposal;
