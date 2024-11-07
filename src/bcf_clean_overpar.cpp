@@ -40,8 +40,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                   CharacterVector treef_con_name_, CharacterVector treef_mod_name_,
                   bool keep_trees=false, bool continuous_tree_save=false,
                   int status_interval=100,
-                  bool RJ= false, bool use_mscale=true, bool use_bscale=true, 
-                  bool b_half_normal=true,
+                  bool use_halfnormal_scales=true,
                   bool abcf=false, bool ibcf=false,
                   int batch_size = 100, double acceptance_target=0.44,
                   double trt_init = 1.0, int verbose=1, 
@@ -59,17 +58,23 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   std::string treef_mod_name = as<std::string>(treef_mod_name_);
   
   if(not treef_con_name.empty()){
-    Rcout << "Saving trees to"  << std::endl;
-    Rcout << treef_con_name  << std::endl;
-    Rcout << treef_mod_name  << std::endl;
+    if (verbose > 0) {
+      Rcout << "Saving trees to"  << std::endl;
+      Rcout << treef_con_name  << std::endl;
+      Rcout << treef_mod_name  << std::endl;
+    }
     if (continuous_tree_save) {
       treef_con.open(treef_con_name.c_str());
       treef_mod.open(treef_mod_name.c_str());
     }
   } else if (keep_trees) {
-    Rcout << "Saving trees to fit object"  << std::endl;
+    if (verbose > 0) {
+      Rcout << "Saving trees to fit object"  << std::endl;
+    }
   } else {
-    Rcout << "Not saving trees to file"  << std::endl;
+    if (verbose > 0) {
+        Rcout << "Not saving trees to file"  << std::endl;
+    }
   }
   
   RNGScope scope;
@@ -146,7 +151,9 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   }
   size_t p_con = x_con.size()/n;
 
-  Rcout << "Using " << p_con << " control variables." << std::endl;
+  if (verbose > 0) {
+    Rcout << "Using " << p_con << " control variables." << std::endl;
+  }
 
   //x cutpoints
   xinfo xi_con;
@@ -174,7 +181,9 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   }
   size_t p_mod = x_mod.size()/n;
 
-  Rcout << "Using " << p_mod << " potential effect moderators." << std::endl;
+  if (verbose > 0) {
+    Rcout << "Using " << p_mod << " potential effect moderators." << std::endl;
+  }
 
   //x cutpoints
   xinfo xi_mod;
@@ -206,9 +215,18 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   //--------------------------------------------------
   //prior parameters
   // PX scale parameter for b: 
-  double bscale_prec = 2;
-  double bscale0 = -0.5;
-  double bscale1 = 0.5;
+  double bscale_prec;
+  double bscale0;
+  double bscale1;
+  if (use_halfnormal_scales) {
+    bscale0 = 0.0;
+    bscale1 = 1.0;
+    bscale_prec = 1.0;
+  } else {
+    bscale0 = -0.5;
+    bscale1 = 0.5;
+    bscale_prec = 2.0;
+  }
 
   double mscale_prec = 1.0;
   double mscale = 1.0;
@@ -274,6 +292,11 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   }
   double* ftemp  = new double[n]; //fit of current tree
 
+  // storage for proposed allfits in alternate mu/tauscale updates
+  double* allfit_proposed = new double[n];
+  double* allfit_con_proposed = new double[n];
+  double* allfit_mod_proposed = new double[n];
+
   // Storage for the individual-level random effects
   double* u = new double[n];
   double* v = new double[n];
@@ -296,7 +319,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   NumericMatrix b_post(nd,n);
   NumericMatrix u_post(nd,n);
   NumericMatrix v_post(nd,n);
-  NumericVector acc_post(4);
+  NumericVector acc_post(6);
   NumericVector delta_con_post(nd);
 
   //  NumericMatrix spred2(nd,dip.n);
@@ -336,7 +359,10 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
    * note: the allfit objects are all carrying the appropriate scales
    */
   //*****************************************************************************
-  Rcout << "\n============================================================\nBeginning MCMC:\n============================================================\n";
+  if (verbose > 0) {
+    Rcout << "\n============================================================\nBeginning MCMC:\n============================================================\n";
+  }
+  
   time_t tp;
   int time1 = time(&tp);
 
@@ -386,10 +412,14 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
                  .ls_sigma_u = 0.,            // log of scale for proposals for sigma_u
                  .ls_sigma_v = 0.,            // log of scale for proposals for sigma_v
                  .ls_rho     = 0.,            // log of scale for proposals for rho
+                 .ls_mscale  = -2.,
+                 .ls_bscale  = -2.,
                  .ac_sigma_y = 0,             // Number of accepted proposals for sigma_y
                  .ac_sigma_u = 0,             // Number of accepted proposals for sigma_u
                  .ac_sigma_v = 0,             // Number of accepted proposals for sigma_v
                  .ac_rho     = 0,             // Number of accepted proposals for rho
+                 .ac_mscale  = 0,
+                 .ac_bscale  = 0,
                  .xform_sigma_v    = xform_sigma_v,
                  .xform_rho        = xform_rho,
                  .xcov_sigma_v_rho = xcov_sigma_v_rho,
@@ -459,50 +489,69 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
     update_trees("control",  
                   allfit, allfit_con, 
                   mscale, bscale0, bscale1,
+                  use_halfnormal_scales,
                   ginfo, wi_con, verbose_itr && printTrees);
 
     update_trees("moderate",  
                   allfit, allfit_mod, 
                   mscale, bscale0, bscale1,
+                  use_halfnormal_scales,
                   ginfo, wi_mod, verbose_itr && printTrees);
 
     logger.log("=====================================");
     logger.log("- MCMC iteration Cleanup");
     logger.log("=====================================");
 
-    if(use_bscale && !block_b0_b1) {
-      update_bscale(bscale0, bscale1, 
-                    b_half_normal,
-                    allfit_con, allfit_mod,
-                    ginfo, wi_mod, verbose_itr);
-    } else if (use_bscale && block_b0_b1) {
-      update_bscale_block(bscale0, bscale1, 
-                    b_half_normal,
-                    allfit_con, allfit_mod,
-                    ginfo, wi_mod, verbose_itr);
-    }
+    if (use_halfnormal_scales) {
+      Rcpp::Rcout << "iter " << iIter << std::endl;
+      Rcpp::Rcout << "pre.af1 " << allfit[0] << std::endl;
+      Rcpp::Rcout << "pre.afc1 " << allfit_con[0] << std::endl;
+      Rcpp::Rcout << "pre.afm1 " << allfit_mod[0] << std::endl;
+      
+      Rcpp::Rcout << "bscale" << std::endl;
+      update_scale_halfnormal(bscale1, ginfo.ls_bscale, ginfo.ac_bscale,
+                              allfit, allfit_mod, 
+                              allfit_proposed, allfit_mod_proposed, 
+                              ginfo);
 
-    if(use_mscale) {
-     update_mscale(mscale,
+      Rcpp::Rcout << "btw.af1 " << allfit[0] << std::endl;
+      Rcpp::Rcout << "btw.afc1 " << allfit_con[0] << std::endl;
+      Rcpp::Rcout << "btw.afm1 " << allfit_mod[0] << std::endl;
+      
+      Rcpp::Rcout << "mscale" << std::endl;
+      update_scale_halfnormal(mscale, ginfo.ls_mscale, ginfo.ac_mscale,
+                              allfit, allfit_con, 
+                              allfit_proposed, allfit_con_proposed, 
+                              ginfo);
+
+      Rcpp::Rcout << "post.af1 " << allfit[0] << std::endl;
+      Rcpp::Rcout << "post.afc1 " << allfit_con[0] << std::endl;
+      Rcpp::Rcout << "post.afm1 " << allfit_mod[0] << std::endl;
+    } else {
+      if (block_b0_b1) {
+        update_bscale_block(bscale0, bscale1, 
+                            allfit_con, allfit_mod,
+                            ginfo, wi_mod, verbose_itr);
+      } else {
+        update_bscale(bscale0, bscale1, 
+                      allfit_con, allfit_mod,
+                      ginfo, wi_mod, verbose_itr);
+      }
+      
+      update_mscale(mscale,
                     allfit_con, allfit_mod,
                     ginfo, wi_con, verbose_itr);
-    }
 
-    if(use_mscale || use_bscale) {
       logger.log("Sync allfits after scale updates");
       for(size_t k=0; k<n; ++k) {
         allfit[k] = allfit_con[k] + allfit_mod[k];
       }
-    }
+    }   
 
     if (abcf) {
       update_sigma_y(ginfo, allfit, nu, lambda);
       update_sigma_u(ginfo, allfit, sigu_hyperprior);
       draw_u(u, allfit, ginfo);
-
-      if ((iIter+1) % batch_size == 0) {
-        update_adaptive_ls(ginfo, iIter, batch_size, acceptance_target);
-      }
     } else if (ibcf) {
       update_sigma_y(ginfo, allfit, nu, lambda);
       update_sigma_u(ginfo, allfit, sigu_hyperprior);
@@ -517,13 +566,17 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       }
       
       draw_uv(u, v, allfit, ginfo);
-
-      if ((iIter+1) % batch_size == 0) {
-        update_adaptive_ls(ginfo, iIter, batch_size, acceptance_target);
-      }
     } else {
       update_sigma_y_conj(allfit, sigma_y, nu, lambda, mscale, pi_con, pi_mod, ginfo);
       calculate_sigma2_i(ginfo, sigma_y, sigma_u, sigma_v, rho, ginfo.sigma2_i);
+    }
+
+    if ((iIter+1) % batch_size == 0) {
+      update_adaptive_ls(ginfo, iIter, batch_size, acceptance_target);
+      Rcpp::Rcout << "adapt.ls_b " << ginfo.ls_bscale << std::endl;
+      Rcpp::Rcout << "adapt.ls_m " << ginfo.ls_mscale << std::endl;
+      Rcpp::Rcout << "adapt.ac_b " << ginfo.ac_bscale << std::endl;
+      Rcpp::Rcout << "adapt.ac_m " << ginfo.ac_mscale << std::endl;
     }
 
     if( ((iIter>=burn) & (iIter % thin==0)) )  {
@@ -540,7 +593,7 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
       save_values(save_ctr, n, ntrt, msd_post, bsd_post, b0_post, b1_post, 
                   sigma_y_post, sigma_u_post, sigma_v_post, rho_post, sigma_i_post,
                   m_post, yhat_post, b_post, u_post, v_post, delta_con_post, 
-                  mscale, bscale1, bscale0, ginfo, 
+                  mscale, bscale1, bscale0, use_halfnormal_scales, ginfo, 
                   allfit, allfit_con, allfit_mod, delta_con);
     }
 
@@ -562,9 +615,10 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   }
 
   int time2 = time(&tp);
-  Rcout << "\n============================================================\n MCMC Complete \n============================================================\n";
-
-  Rcout << "time for loop: " << time2 - time1 << endl;
+  if (verbose > 0) {
+    Rcout << "\n============================================================\n MCMC Complete \n============================================================\n";
+    Rcout << "time for loop: " << time2 - time1 << endl;
+  }
 
   t_mod.clear(); t_con.clear();
   delete[] w;
@@ -580,6 +634,9 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   delete[] prop_sig2;
   delete[] weight;
   delete[] weight_het;
+  delete[] allfit_proposed;
+  delete[] allfit_con_proposed;
+  delete[] allfit_mod_proposed;
   
   if(not treef_con_name.empty()){
     if (continuous_tree_save) {
@@ -606,6 +663,8 @@ List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_,
   acc_post(1) = float(ginfo.ac_sigma_u) / (nd*thin+burn);
   acc_post(2) = float(ginfo.ac_sigma_v) / (nd*thin+burn);
   acc_post(3) = float(ginfo.ac_rho)     / (nd*thin+burn);
+  acc_post(4) = float(ginfo.ac_mscale)  / (nd*thin+burn);
+  acc_post(5) = float(ginfo.ac_bscale)  / (nd*thin+burn);
   
   return(List::create(_["yhat_post"] = yhat_post, _["m_post"] = m_post, _["b_post"] = b_post,
                       _["sigma_y"] = sigma_y_post, _["sigma_u"] = sigma_u_post, _["sigma_v"] = sigma_v_post,

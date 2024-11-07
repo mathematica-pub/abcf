@@ -17,7 +17,7 @@ void log_trees(std::string step, tree& t, xinfo& xi, bool verbose, Logger& logge
 // Desired behavior of verbose is unclear to me, since it is hardcoded originally.
 void update_trees(std::string context,
                   double* allfit, double* allfit_spec, 
-                  double mscale, double bscale0, double bscale1,
+                  double mscale, double bscale0, double bscale1, bool use_halfnormal_scales,
                   ginfo& gi, winfo& wi, bool verbose) {
     char logBuff[100];
 
@@ -48,7 +48,12 @@ void update_trees(std::string context,
         allfit[k]      = allfit[k]      -wi.scale_idx[k]*gi.ftemp[k];
         allfit_spec[k] = allfit_spec[k] -wi.scale_idx[k]*gi.ftemp[k];
         
-        wi.ri[k] = (gi.y[k]-allfit[k])/wi.scale_idx[k];
+        if (use_halfnormal_scales && context=="moderate" & k>=gi.ntrt) {
+          // wi.scale_idx[k] is 0 for control so don't want divide by 0
+          wi.ri[k] = (gi.y[k]-allfit[k]);
+        } else {
+          wi.ri[k] = (gi.y[k]-allfit[k])/wi.scale_idx[k];
+        }
 
         if(wi.ri[k] != wi.ri[k]) {
           Rcpp::Rcout << (gi.y[k]-allfit[k]) << std::endl;
@@ -201,8 +206,53 @@ void update_mscale(double& mscale,
     update_pi(wi, gi.logger, verbose);
 }
 
+void update_scale_halfnormal(double& scale, double logsigma, int& ac,
+                              double* allfit, double* allfit_spec, 
+                              double* allfit_proposed, double* allfit_spec_proposed, 
+                              ginfo& gi) {
+    double proposal = propose_sigma(scale, logsigma, gi.gen);
+    double scale_ratio = proposal/scale;
+    for (size_t k=0; k<gi.n; ++k) {
+      allfit_spec_proposed[k] = allfit_spec[k] * scale_ratio;
+      allfit_proposed[k] = allfit[k] - allfit_spec[k] + allfit_spec_proposed[k];
+    }
+    
+    // Implicitly the denominator is 2*hyperprior variance, but hyperprior var is 1
+    double log_prior_current =  -scale*scale / (2);
+    double log_prior_proposed = -proposal  *proposal   / (2);
+    
+    double lp_diff = calculate_lp_diff_forscales(gi, allfit, allfit_proposed, log_prior_current, log_prior_proposed);
+    double log_ratio = lp_diff + log(proposal) - log(scale);
+
+    //Accept or reject
+    double cut = gi.gen.uniform();
+
+    Rcpp::Rcout << "scale.val_curr " << scale << std::endl;
+    Rcpp::Rcout << "scale.val_prop " << proposal << std::endl;
+    Rcpp::Rcout << "scale.logprior_prop " << log_prior_current << std::endl;
+    Rcpp::Rcout << "scale.logprior_curr " << log_prior_proposed << std::endl;
+    Rcpp::Rcout << "scale.lpdiff " << lp_diff << std::endl;
+    Rcpp::Rcout << "scale.lograt " << log_ratio << std::endl;
+    Rcpp::Rcout << "scale.cut " << cut << std::endl;
+    Rcpp::Rcout << "scale.af1_curr " << allfit[0] << std::endl;
+    Rcpp::Rcout << "scale.af1_prop " << allfit_proposed[0] << std::endl;
+    Rcpp::Rcout << "scale.afs1_curr " << allfit_spec[0] << std::endl;
+    Rcpp::Rcout << "scale.afs1_prop " << allfit_spec_proposed[0] << std::endl;
+
+    if (log(cut) < log_ratio) {
+      gi.logger.log("Accepting proposed scale " + std::to_string(proposal));
+      scale = proposal;
+      ac += 1;
+      for(size_t k=0; k<gi.n; ++k) {
+        allfit[k]      = allfit_proposed[k];
+        allfit_spec[k] = allfit_spec_proposed[k];
+      }
+    } else {
+      gi.logger.log("Rejecting proposed scale " + std::to_string(proposal));
+    }
+}
+
 void update_bscale(double& bscale0, double& bscale1,
-                    bool b_half_normal,
                     double* allfit_con, double* allfit_mod,
                     ginfo& gi, winfo& wi, bool verbose) {
     double ww0 = 0.0, ww1 = 0.0;
@@ -224,16 +274,10 @@ void update_bscale(double& bscale0, double& bscale1,
         allfit_mod[k] = allfit_mod[k]*scale_ratio;
     }
 
-    // Not currently accesible from R - hardcoded to true
-    if(!b_half_normal) {
-       draw_delta(wi.t, wi.pi, wi.delta, gi.gen) ;
-    }
-
     update_pi(wi, gi.logger, verbose);
 }
 
 void update_bscale_block(double& bscale0, double& bscale1,
-                        bool b_half_normal,
                         double* allfit_con, double* allfit_mod,
                         ginfo& gi, winfo& wi, bool verbose) {
     double ww0 = 0.0, ww1 = 0.0;
@@ -264,11 +308,6 @@ void update_bscale_block(double& bscale0, double& bscale1,
     double scale_ratio = bscale1 / bscale1_old;
     for(size_t k=0; k<gi.n; ++k) {
         allfit_mod[k] = allfit_mod[k]*scale_ratio;
-    }
-
-    // Not currently accesible from R - hardcoded to true
-    if(!b_half_normal) {
-       draw_delta(wi.t, wi.pi, wi.delta, gi.gen) ;
     }
 
     update_pi(wi, gi.logger, verbose);
@@ -479,6 +518,30 @@ double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, do
   return(lp_diff);
 }
 
+double calculate_lp_diff_forscales(ginfo& gi, double* allfit, double* allfit_proposed, double log_prior_current, double log_prior_proposed) {
+  // Log likelihood requires two different sums: sum of the log of sigma_i^2, and sum of resid/sigma_i^2
+  double sum_r_over_sig2_i_current  = 0;
+  double sum_r_over_sig2_i_proposed = 0;
+
+  double r_current, r2_current, r_proposed, r2_proposed;
+  for (size_t i=0;i<gi.n;i++) {
+    r_current = gi.y[i] - allfit[i];
+    r2_current = r_current*r_current;
+    r_proposed = gi.y[i] - allfit_proposed[i];
+    r2_proposed = r_proposed*r_proposed;
+
+    sum_r_over_sig2_i_current  += r2_current/gi.sigma2_i[i];
+    sum_r_over_sig2_i_proposed += r2_proposed/gi.sigma2_i[i];
+  }
+  // Now compose the log posteriors: log prior + log likelihood
+  // thje logposterior also includes sum(log*sigma2_i), but because that is the same for both current and proposal, we can ignore in the diff since it falls out as a proportionality constant
+  double lp_current  = log_prior_current  - 0.5 * sum_r_over_sig2_i_current;
+  double lp_proposed = log_prior_proposed - 0.5 * sum_r_over_sig2_i_proposed;
+
+  double lp_diff = lp_proposed - lp_current;
+  return(lp_diff);
+}
+
 void calculate_sigma2_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_v, double rho, double* return_loc) {
   // precalculate squares rather than calculating inside loop
   double v_y = sigma_y*sigma_y;
@@ -563,6 +626,8 @@ void update_adaptive_ls(ginfo& gi, size_t iter, int batch_size, double ac_target
   gi.ls_sigma_u = calculate_adaptive_ls(gi.ac_sigma_u, ac_count, gi.ls_sigma_u, ls_incr);
   gi.ls_sigma_v = calculate_adaptive_ls(gi.ac_sigma_v, ac_count, gi.ls_sigma_v, ls_incr);
   gi.ls_rho     = calculate_adaptive_ls(gi.ac_rho,     ac_count, gi.ls_rho,     ls_incr);
+  gi.ls_mscale  = calculate_adaptive_ls(gi.ac_mscale,  ac_count, gi.ls_mscale,  ls_incr);
+  gi.ls_bscale  = calculate_adaptive_ls(gi.ac_bscale,  ac_count, gi.ls_bscale,  ls_incr);
 }
 
 double calculate_adaptive_ls(int accepted, double target, double log_sigma, double increment) {
@@ -581,7 +646,7 @@ void save_values(size_t& save_ctr, int n, int ntrt,
                 Rcpp::NumericVector& rho_post, Rcpp::NumericMatrix& sigma_i_post,
                 Rcpp::NumericMatrix& m_post, Rcpp::NumericMatrix& yhat_post, Rcpp::NumericMatrix& b_post,
                 Rcpp::NumericMatrix& u_post, Rcpp::NumericMatrix& v_post, Rcpp::NumericVector& delta_con_post, 
-                double mscale, double bscale1, double bscale0, ginfo& gi,
+                double mscale, double bscale1, double bscale0, bool use_halfnormal_scales, ginfo& gi,
                 double* allfit, double* allfit_con, double* allfit_mod, double delta_con) {
 
   msd_post(save_ctr) = mscale;
@@ -598,8 +663,13 @@ void save_values(size_t& save_ctr, int n, int ntrt,
   for(size_t k=0;k<n;k++) {
     m_post(save_ctr, k) = allfit_con[k];
     yhat_post(save_ctr, k) = allfit[k];
-    bscale = (k<ntrt) ? bscale1 : bscale0;
-    b_post(save_ctr, k) = (bscale1-bscale0)*allfit_mod[k]/bscale;
+    if (use_halfnormal_scales) {
+      b_post(save_ctr, k) = allfit_mod[k];
+    } else {
+      bscale = (k<ntrt) ? bscale1 : bscale0;
+      b_post(save_ctr, k) = (bscale1-bscale0)*allfit_mod[k]/bscale;
+    }
+    
     u_post(save_ctr, k) = gi.u[k];
     v_post(save_ctr, k) = gi.v[k];
     sigma_i_post(save_ctr,k) = sqrt(gi.sigma2_i[k]);

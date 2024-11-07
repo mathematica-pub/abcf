@@ -346,7 +346,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                 continuous_tree_save=FALSE,
                 log_file=file.path('.',sprintf('bcf_log_%s.txt',format(Sys.time(), "%Y%m%d_%H%M%S"))),
                 nu = 3, lambda = NULL, sigq = .9, sighat = NULL,
-                include_pi = "control", use_muscale=TRUE, use_tauscale=TRUE,
+                include_pi = "control", use_halfnormal_scales=TRUE,
                 simplified_return=FALSE,
                 verbose=1,
                 block_b0_b1=FALSE,
@@ -397,7 +397,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
     if(!(continuous_tree_save %in% c(TRUE,FALSE))) stop("continuous_tree_save must be TRUE or FALSE")
     if (keep_trees & !is.null(save_tree_directory)) stop("Can\'t both save trees and keep trees; set save_tree_directory to NULL")
     if (keep_trees & continuous_tree_save) stop("Can\'t both keep trees and write them continuously; set continuous_tree_save to FALSE")
-    if(!use_tauscale & block_b0_b1) stop('Can\'t block b0 and b1 if tauscale is not used')
+    if (use_halfnormal_scales & block_b0_b1) stop('Can\'t block b0 and b1 if tauscale is not used')
     if(!(abcf %in% c(TRUE,FALSE))) stop("abcf must be TRUE or FALSE")
     if(!(ibcf %in% c(TRUE,FALSE))) stop("ibcf must be TRUE or FALSE")
     if(abcf|ibcf) {
@@ -420,8 +420,8 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
     if(nthin>nsim+1) stop("nthin must be < nsim")
     if(nburn<1000) warning("A low (<1000) value for nburn was supplied")
     if(nsim*nburn<1000) warning("A low (<1000) value for total iterations after burn-in was supplied")
-    if (use_tauscale & !identical(x_control, x_moderate)) {
-        warning("Different covariate matrices supplied to x_control and x_moderate, but tau_scale is set to TRUE. When use_tauscale is TRUE, all covariates in x_moderate can still affect mu (but covariates in x_control cannot affect tau)")
+    if (!use_halfnormal_scales & !identical(x_control, x_moderate)) {
+        warning("Different covariate matrices supplied to x_control and x_moderate, but use_halfnormal_scales is set to FALSE. When use_halfnormal_scales is FALSE, all covariates in x_moderate can still affect mu (but covariates in x_control cannot affect tau)")
     }
     if ((abcf|ibcf) & length(unique(w))==1) {
         warning('aBCF and iBCF models are not identified without weights')
@@ -478,17 +478,16 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
     }
 
     if (is.null(sd_moderate)) {
-        mod_sd <- 1/ifelse(use_tauscale,0.674,1)
+        mod_sd <- 1
     } else {
-        mod_sd = sd_moderate/sdy/ifelse(use_tauscale,0.674,1)
+        mod_sd = sd_moderate/sdy
     }
 
     #If hyperprior sd isn't given, scale them off of the prior sds
     if (is.null(sigu_hyperprior)) {
         sigu_hyperprior <- con_sd/3
     } else {
-        #user-entered values will should be prior medians, so convert to scale using 0.674
-        sigu_hyperprior <- sigu_hyperprior/sdy/0.674
+        sigu_hyperprior <- sigu_hyperprior/sdy
     }
 
     if (ibcf) {
@@ -510,7 +509,10 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
 
         this_seed = random_seed + iChain - 1
 
-        cat("Calling bcfoverparRcppClean From R\n")
+        if (verbose>0) {
+            cat("Calling bcfoverparRcppClean From R\n")
+        }
+
         set.seed(this_seed)
 
         tree_files = .get_chain_tree_files(save_tree_directory, iChain)
@@ -533,8 +535,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                                      keep_trees = keep_trees,
                                      continuous_tree_save=continuous_tree_save,
                                      status_interval = update_interval,
-                                     use_mscale = use_muscale, use_bscale = use_tauscale,
-                                     b_half_normal = TRUE,
+                                     use_halfnormal_scales = use_halfnormal_scales,
                                      abcf=abcf, ibcf=ibcf,
                                      batch_size=batch_size, acceptance_target=0.44,
                                      verbose=verbose,
@@ -542,7 +543,9 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
                                      sigu_hyperprior=sigu_hyperprior,
                                      ate_prior_sd=ate_prior_sd)
 
-        cat("bcfoverparRcppClean returned to R\n")
+        if (verbose > 0) {
+            cat("bcfoverparRcppClean returned to R\n")
+        }
 
         ac = fitbcf$m_post[,order(perm)]
 
@@ -571,7 +574,7 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
 
         sigma_i = sdy*fitbcf$sigma_i[,order(perm)]
 
-        names(fitbcf$acceptance) = c('sigma_y','sigma_u','sigma_v','rho')
+        names(fitbcf$acceptance) = c('sigma_y','sigma_u','sigma_v','rho','mscale','bscale')
 
         list(sigma_y    = sdy*fitbcf$sigma_y,
              sigma_u    = sdy*fitbcf$sigma_u,
@@ -609,13 +612,24 @@ bcf <- function(y, z, x_control, x_moderate=x_control, pihat, w = NULL,
         #If we're not running IBCF, remove all the iBCF-specific components
         chain_out <- lapply(chain_out, function(x) {
             x$sigma <- x$sigma_y
-            x$sigma_y <- x$sigma_u <- x$sigma_v <- x$rho <- x$sigma_i <- x$u <- x$v <- x$acceptance <- x$ate_prior_sd <- NULL
+            x$sigma_y <- x$sigma_u <- x$sigma_v <- x$rho <- x$sigma_i <- x$u <- x$v <- x$ate_prior_sd <- NULL
+            x$acceptance <- x$acceptance[c('mscale', 'bscale')]
             return(x)
         })
     } else if (!ibcf) {
         chain_out <- lapply(chain_out, function(x) {
             x$sigma_v <- x$rho <- x$v <- x$ate_prior_sd <- NULL
-            x$acceptance <- x$acceptance[c('sigma_y', 'sigma_u')]
+            x$acceptance <- x$acceptance[c('sigma_y', 'sigma_u', 'mscale', 'bscale')]
+            return(x)
+        })
+    }
+
+    if (!use_halfnormal_scales) {
+        chain_out <- lapply(chain_out, function(x) {
+            x$acceptance <- x$acceptance[setdiff(names(x$acceptance), c('mscale','bscale'))]
+            if (length(x$acceptance) == 0) {
+                x$acceptance <- NULL
+            }
             return(x)
         })
     }

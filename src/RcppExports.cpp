@@ -12,8 +12,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // bcfoverparRcppClean
-List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_, NumericVector x_con_, NumericVector x_mod_, List x_con_info_list, List x_mod_info_list, int burn, int nd, int thin, int ntree_mod, int ntree_con, double lambda, double nu, double con_sd, double mod_sd, double con_alpha, double con_beta, double mod_alpha, double mod_beta, CharacterVector treef_con_name_, CharacterVector treef_mod_name_, bool keep_trees, bool continuous_tree_save, int status_interval, bool RJ, bool use_mscale, bool use_bscale, bool b_half_normal, bool abcf, bool ibcf, int batch_size, double acceptance_target, double trt_init, int verbose, bool block_b0_b1, double sigu_hyperprior, double ate_prior_sd);
-RcppExport SEXP _abcf_bcfoverparRcppClean(SEXP y_SEXP, SEXP z_SEXP, SEXP w_SEXP, SEXP x_con_SEXP, SEXP x_mod_SEXP, SEXP x_con_info_listSEXP, SEXP x_mod_info_listSEXP, SEXP burnSEXP, SEXP ndSEXP, SEXP thinSEXP, SEXP ntree_modSEXP, SEXP ntree_conSEXP, SEXP lambdaSEXP, SEXP nuSEXP, SEXP con_sdSEXP, SEXP mod_sdSEXP, SEXP con_alphaSEXP, SEXP con_betaSEXP, SEXP mod_alphaSEXP, SEXP mod_betaSEXP, SEXP treef_con_name_SEXP, SEXP treef_mod_name_SEXP, SEXP keep_treesSEXP, SEXP continuous_tree_saveSEXP, SEXP status_intervalSEXP, SEXP RJSEXP, SEXP use_mscaleSEXP, SEXP use_bscaleSEXP, SEXP b_half_normalSEXP, SEXP abcfSEXP, SEXP ibcfSEXP, SEXP batch_sizeSEXP, SEXP acceptance_targetSEXP, SEXP trt_initSEXP, SEXP verboseSEXP, SEXP block_b0_b1SEXP, SEXP sigu_hyperpriorSEXP, SEXP ate_prior_sdSEXP) {
+List bcfoverparRcppClean(NumericVector y_, NumericVector z_, NumericVector w_, NumericVector x_con_, NumericVector x_mod_, List x_con_info_list, List x_mod_info_list, int burn, int nd, int thin, int ntree_mod, int ntree_con, double lambda, double nu, double con_sd, double mod_sd, double con_alpha, double con_beta, double mod_alpha, double mod_beta, CharacterVector treef_con_name_, CharacterVector treef_mod_name_, bool keep_trees, bool continuous_tree_save, int status_interval, bool use_halfnormal_scales, bool abcf, bool ibcf, int batch_size, double acceptance_target, double trt_init, int verbose, bool block_b0_b1, double sigu_hyperprior, double ate_prior_sd);
+RcppExport SEXP _abcf_bcfoverparRcppClean(SEXP y_SEXP, SEXP z_SEXP, SEXP w_SEXP, SEXP x_con_SEXP, SEXP x_mod_SEXP, SEXP x_con_info_listSEXP, SEXP x_mod_info_listSEXP, SEXP burnSEXP, SEXP ndSEXP, SEXP thinSEXP, SEXP ntree_modSEXP, SEXP ntree_conSEXP, SEXP lambdaSEXP, SEXP nuSEXP, SEXP con_sdSEXP, SEXP mod_sdSEXP, SEXP con_alphaSEXP, SEXP con_betaSEXP, SEXP mod_alphaSEXP, SEXP mod_betaSEXP, SEXP treef_con_name_SEXP, SEXP treef_mod_name_SEXP, SEXP keep_treesSEXP, SEXP continuous_tree_saveSEXP, SEXP status_intervalSEXP, SEXP use_halfnormal_scalesSEXP, SEXP abcfSEXP, SEXP ibcfSEXP, SEXP batch_sizeSEXP, SEXP acceptance_targetSEXP, SEXP trt_initSEXP, SEXP verboseSEXP, SEXP block_b0_b1SEXP, SEXP sigu_hyperpriorSEXP, SEXP ate_prior_sdSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -42,10 +42,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type keep_trees(keep_treesSEXP);
     Rcpp::traits::input_parameter< bool >::type continuous_tree_save(continuous_tree_saveSEXP);
     Rcpp::traits::input_parameter< int >::type status_interval(status_intervalSEXP);
-    Rcpp::traits::input_parameter< bool >::type RJ(RJSEXP);
-    Rcpp::traits::input_parameter< bool >::type use_mscale(use_mscaleSEXP);
-    Rcpp::traits::input_parameter< bool >::type use_bscale(use_bscaleSEXP);
-    Rcpp::traits::input_parameter< bool >::type b_half_normal(b_half_normalSEXP);
+    Rcpp::traits::input_parameter< bool >::type use_halfnormal_scales(use_halfnormal_scalesSEXP);
     Rcpp::traits::input_parameter< bool >::type abcf(abcfSEXP);
     Rcpp::traits::input_parameter< bool >::type ibcf(ibcfSEXP);
     Rcpp::traits::input_parameter< int >::type batch_size(batch_sizeSEXP);
@@ -55,7 +52,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type block_b0_b1(block_b0_b1SEXP);
     Rcpp::traits::input_parameter< double >::type sigu_hyperprior(sigu_hyperpriorSEXP);
     Rcpp::traits::input_parameter< double >::type ate_prior_sd(ate_prior_sdSEXP);
-    rcpp_result_gen = Rcpp::wrap(bcfoverparRcppClean(y_, z_, w_, x_con_, x_mod_, x_con_info_list, x_mod_info_list, burn, nd, thin, ntree_mod, ntree_con, lambda, nu, con_sd, mod_sd, con_alpha, con_beta, mod_alpha, mod_beta, treef_con_name_, treef_mod_name_, keep_trees, continuous_tree_save, status_interval, RJ, use_mscale, use_bscale, b_half_normal, abcf, ibcf, batch_size, acceptance_target, trt_init, verbose, block_b0_b1, sigu_hyperprior, ate_prior_sd));
+    rcpp_result_gen = Rcpp::wrap(bcfoverparRcppClean(y_, z_, w_, x_con_, x_mod_, x_con_info_list, x_mod_info_list, burn, nd, thin, ntree_mod, ntree_con, lambda, nu, con_sd, mod_sd, con_alpha, con_beta, mod_alpha, mod_beta, treef_con_name_, treef_mod_name_, keep_trees, continuous_tree_save, status_interval, use_halfnormal_scales, abcf, ibcf, batch_size, acceptance_target, trt_init, verbose, block_b0_b1, sigu_hyperprior, ate_prior_sd));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -63,7 +60,7 @@ END_RCPP
 RcppExport SEXP _rcpp_module_boot_TreeSamples();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_abcf_bcfoverparRcppClean", (DL_FUNC) &_abcf_bcfoverparRcppClean, 38},
+    {"_abcf_bcfoverparRcppClean", (DL_FUNC) &_abcf_bcfoverparRcppClean, 35},
     {"_rcpp_module_boot_TreeSamples", (DL_FUNC) &_rcpp_module_boot_TreeSamples, 0},
     {NULL, NULL, 0}
 };
