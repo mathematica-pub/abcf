@@ -77,20 +77,20 @@ void update_pi(pinfo& pi, double spec_sd, double delta, int ntree, Logger& logge
 
 void update_mscale(double& mscale,
                     double* allfit_con, double* allfit_mod,
-                    ginfo& gi, winfo& wi, bool verbose);
+                    ginfo& gi, winfo& wi, bool verbose, bool prior_only);
 
 void update_scale_halfnormal(double& scale, double logsigma, int& ac,
                               double* allfit, double* allfit_spec, 
                               double* allfit_proposed, double* allfit_spec_proposed, 
-                              ginfo& gi);
+                              ginfo& gi, bool prior_only);
 
 void update_bscale(double& bscale0, double& bscale1,
                     double* allfit_con, double* allfit_mod,
-                    ginfo& gi, winfo& wi, bool verbose);
+                    ginfo& gi, winfo& wi, bool verbose, bool prior_only);
 
 void update_bscale_block(double& bscale0, double& bscale1,
                         double* allfit_con, double* allfit_mod,
-                        ginfo& gi, winfo& wi, bool verbose);
+                        ginfo& gi, winfo& wi, bool verbose, bool prior_only);
 
 void initialize_sigmas(bool ibcf, double& sigma_y, double& sigma_u, double& sigma_v, double& rho, 
                         double sigu_hyperprior, double ate_prior_sd, RNG& gen);
@@ -101,27 +101,27 @@ double propose_rho(double rho_current, double ls_proposal, RNG& gen);
 
 arma::vec propose_sigma_v_rho(double sigma_v_current, double rho_current, arma::mat& xcov_sigma_v_rho, RNG& gen);
 
-void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& gi);
+void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& gi, bool prior_only);
 
-void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda);
+void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda, bool prior_only);
 
-void update_sigma_u(ginfo& gi, double* allfit, double hyperprior);
+void update_sigma_u(ginfo& gi, double* allfit, double hyperprior, bool prior_only);
 
-void update_sigma_v(ginfo& gi, double* allfit, double hyperprior);
+void update_sigma_v(ginfo& gi, double* allfit, double hyperprior, bool prior_only);
 
-void update_rho(ginfo& gi, double* allfit);
+void update_rho(ginfo& gi, double* allfit, bool prior_only);
 
-void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior);
+void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior, bool prior_only);
 
-double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed);
+double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed, bool prior_only);
 
-double calculate_lp_diff_forscales(ginfo& gi, double* allfit, double* allfit_proposed, double log_prior_current, double log_prior_proposed);
+double calculate_lp_diff_forscales(ginfo& gi, double* allfit, double* allfit_proposed, double log_prior_current, double log_prior_proposed, bool prior_only);
 
 void calculate_sigma2_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_v, double rho, double* return_loc);
 
-void draw_uv(double* u, double* v, double* allfit, ginfo& gi);
+void draw_uv(double* u, double* v, double* allfit, ginfo& gi, bool prior_only);
 
-void draw_u(double* u, double* allfit, ginfo& gi);
+void draw_u(double* u, double* allfit, ginfo& gi, bool prior_only);
 
 void update_mh_cov(arma::mat& cov_loc, arma::vec par1, arma::vec par2);
 

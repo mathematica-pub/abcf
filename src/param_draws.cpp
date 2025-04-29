@@ -187,11 +187,13 @@ void update_pi(winfo& wi, Logger& logger, bool verbose) {
 
 void update_mscale(double& mscale,
                     double* allfit_con, double* allfit_mod,
-                    ginfo& gi, winfo& wi, bool verbose) {
+                    ginfo& gi, winfo& wi, bool verbose, bool prior_only) {
     double ww = 0.0;
     double rw = 0.0;
 
-    calculate_rwww(0, gi.n, gi.sigma2_i, mscale, allfit_con, allfit_mod, gi.y, ww, rw);
+    if (!prior_only) {
+      calculate_rwww(0, gi.n, gi.sigma2_i, mscale, allfit_con, allfit_mod, gi.y, ww, rw);
+    }
 
     double mscale_old = mscale;
     gi.logger.log("Drawing mscale");
@@ -209,7 +211,7 @@ void update_mscale(double& mscale,
 void update_scale_halfnormal(double& scale, double logsigma, int& ac,
                               double* allfit, double* allfit_spec, 
                               double* allfit_proposed, double* allfit_spec_proposed, 
-                              ginfo& gi) {
+                              ginfo& gi, bool prior_only) {
     double proposal = propose_sigma(scale, logsigma, gi.gen);
     double scale_ratio = proposal/scale;
     for (size_t k=0; k<gi.n; ++k) {
@@ -221,7 +223,7 @@ void update_scale_halfnormal(double& scale, double logsigma, int& ac,
     double log_prior_current =  -scale*scale / (2);
     double log_prior_proposed = -proposal  *proposal   / (2);
     
-    double lp_diff = calculate_lp_diff_forscales(gi, allfit, allfit_proposed, log_prior_current, log_prior_proposed);
+    double lp_diff = calculate_lp_diff_forscales(gi, allfit, allfit_proposed, log_prior_current, log_prior_proposed, prior_only);
     double log_ratio = lp_diff + log(proposal) - log(scale);
 
     //Accept or reject
@@ -241,12 +243,14 @@ void update_scale_halfnormal(double& scale, double logsigma, int& ac,
 
 void update_bscale(double& bscale0, double& bscale1,
                     double* allfit_con, double* allfit_mod,
-                    ginfo& gi, winfo& wi, bool verbose) {
+                    ginfo& gi, winfo& wi, bool verbose, bool prior_only) {
     double ww0 = 0.0, ww1 = 0.0;
     double rw0 = 0.0, rw1 = 0.0;
 
-    calculate_rwww(0,       gi.ntrt, gi.sigma2_i, bscale1, allfit_mod, allfit_con, gi.y, ww1, rw1);
-    calculate_rwww(gi.ntrt, gi.n,    gi.sigma2_i, bscale0, allfit_mod, allfit_con, gi.y, ww0, rw0);
+    if (!prior_only) {
+      calculate_rwww(0,       gi.ntrt, gi.sigma2_i, bscale1, allfit_mod, allfit_con, gi.y, ww1, rw1);
+      calculate_rwww(gi.ntrt, gi.n,    gi.sigma2_i, bscale0, allfit_mod, allfit_con, gi.y, ww0, rw0);
+    }
 
     double bscale0_old = bscale0;
     double bscale1_old = bscale1;
@@ -266,13 +270,14 @@ void update_bscale(double& bscale0, double& bscale1,
 
 void update_bscale_block(double& bscale0, double& bscale1,
                         double* allfit_con, double* allfit_mod,
-                        ginfo& gi, winfo& wi, bool verbose) {
+                        ginfo& gi, winfo& wi, bool verbose, bool prior_only) {
     double ww0 = 0.0, ww1 = 0.0;
     double rw0 = 0.0, rw1 = 0.0;
 
-    calculate_rwww(0,       gi.ntrt, gi.sigma2_i, bscale1, allfit_mod, allfit_con, gi.y, ww1, rw1);
-    calculate_rwww(gi.ntrt, gi.n,    gi.sigma2_i, bscale0, allfit_mod, allfit_con, gi.y, ww0, rw0);
-
+    if (!prior_only) {
+      calculate_rwww(0,       gi.ntrt, gi.sigma2_i, bscale1, allfit_mod, allfit_con, gi.y, ww1, rw1);
+      calculate_rwww(gi.ntrt, gi.n,    gi.sigma2_i, bscale0, allfit_mod, allfit_con, gi.y, ww0, rw0);
+    }
     double bscale1_old = bscale1;
 
     // Draw new single b1, conjugate
@@ -337,26 +342,31 @@ arma::vec propose_sigma_v_rho(double sigma_v_current, double rho_current, arma::
   return(proposal);
 }
 
-void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& gi) {
+void update_sigma_y_conj(double* allfit, double& sigma, double nu, double lambda, double mscale, pinfo& pi_con, pinfo& pi_mod, ginfo& gi, bool prior_only) {
   gi.logger.log("Draw sigma");
   double rss = 0.0;
   double restemp = 0.0;
-  for(size_t k=0;k<gi.n;k++) {
-    restemp = gi.y[k]-allfit[k];
-    rss += gi.w[k]*restemp*restemp;
-  }
+  if (!prior_only) {
+    for(size_t k=0;k<gi.n;k++) {
+      restemp = gi.y[k]-allfit[k];
+      rss += gi.w[k]*restemp*restemp;
+    }
 
-  sigma = sqrt((nu*lambda + rss)/gi.gen.chi_square(nu+gi.n));
+    sigma = sqrt((nu*lambda + rss)/gi.gen.chi_square(nu+gi.n));
+  } else {
+    sigma = sqrt((nu*lambda)/gi.gen.chi_square(nu));
+  }
+  
 }
 
-void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda) {
+void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda, bool prior_only) {
   // Proposal is an adaptive MH draw, scaled by ls_sigma_y
   double proposal = propose_sigma(gi.sigma_y, gi.ls_sigma_y, gi.gen);
   calculate_sigma2_i(gi, proposal, gi.sigma_u, gi.sigma_v, gi.rho, gi.prop_sig2);
 
   double log_prior_current  = - (nu/2 + 1) * log(gi.sigma_y*gi.sigma_y) - nu*lambda / (2*gi.sigma_y*gi.sigma_y);
   double log_prior_proposed = - (nu/2 + 1) * log(proposal  *proposal)   - nu*lambda / (2*proposal  *proposal);
-  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed);
+  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, prior_only);
   double log_ratio = lp_diff + log(proposal) - log(gi.sigma_y);
 
   //Accept or reject
@@ -373,14 +383,14 @@ void update_sigma_y(ginfo& gi, double* allfit, double nu, double lambda) {
   }
 }
 
-void update_sigma_u(ginfo& gi, double* allfit, double hyperprior) {
+void update_sigma_u(ginfo& gi, double* allfit, double hyperprior, bool prior_only) {
   // Proposal is an adaptive MH draw, scaled by ls_sigma_u
   double proposal = propose_sigma(gi.sigma_u, gi.ls_sigma_u, gi.gen);
   calculate_sigma2_i(gi, gi.sigma_y, proposal, gi.sigma_v, gi.rho, gi.prop_sig2);
 
   double log_prior_current =  -gi.sigma_u*gi.sigma_u / (2 * hyperprior * hyperprior);
   double log_prior_proposed = -proposal  *proposal   / (2 * hyperprior * hyperprior);
-  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed);
+  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, prior_only);
   double log_ratio = lp_diff + log(proposal) - log(gi.sigma_u);
 
   //Accept or reject
@@ -397,14 +407,14 @@ void update_sigma_u(ginfo& gi, double* allfit, double hyperprior) {
   }
 }
 
-void update_sigma_v(ginfo& gi, double* allfit, double hyperprior) {
+void update_sigma_v(ginfo& gi, double* allfit, double hyperprior, bool prior_only) {
   // Proposal is an adaptive MH draw, scaled by ls_sigma_v
   double proposal = propose_sigma(gi.sigma_v, gi.ls_sigma_v, gi.gen);
   calculate_sigma2_i(gi, gi.sigma_y, gi.sigma_u, proposal, gi.rho, gi.prop_sig2);
 
   double log_prior_current =  -gi.sigma_v*gi.sigma_v / (2 * hyperprior * hyperprior);
   double log_prior_proposed = -proposal  *proposal   / (2 * hyperprior * hyperprior);
-  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed);
+  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, prior_only);
   double log_ratio = lp_diff + log(proposal) - log(gi.sigma_v);
 
   //Accept or reject
@@ -421,7 +431,7 @@ void update_sigma_v(ginfo& gi, double* allfit, double hyperprior) {
   }
 }
 
-void update_rho(ginfo& gi, double* allfit) {
+void update_rho(ginfo& gi, double* allfit, bool prior_only) {
   // Proposal is an adaptive MH draw, scaled by ls_rho
   double proposal = propose_rho(gi.rho, gi.ls_rho, gi.gen);
   calculate_sigma2_i(gi, gi.sigma_y, gi.sigma_u, gi.sigma_v, proposal, gi.prop_sig2);
@@ -430,7 +440,7 @@ void update_rho(ginfo& gi, double* allfit) {
   log_prior_current  = (2 - 1)*log(gi.rho + 1)   + (2 - 1)*log(1 - gi.rho);
   log_prior_proposed = (2 - 1)*log(proposal + 1) + (2 - 1)*log(1 - proposal);
  
-  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed);
+  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, prior_only);
   double log_ratio = lp_diff + log((proposal + 1) * (1 - proposal) / ((gi.rho + 1) * (1 - gi.rho)));
 
   //Accept or reject
@@ -448,7 +458,7 @@ void update_rho(ginfo& gi, double* allfit) {
 }
 
 void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior) {
-  arma::vec proposal = propose_sigma_v_rho(gi.sigma_v, gi.rho, gi.xcov_sigma_v_rho, gi.gen);
+  arma::vec proposal = propose_sigma_v_rho(gi.sigma_v, gi.rho, gi.xcov_sigma_v_rho, gi.gen, bool prior_only);
   calculate_sigma2_i(gi, gi.sigma_y, gi.sigma_u, proposal(0), proposal(1), gi.prop_sig2);
 
   double log_prior_current  = - 0.5*gi.sigma_v  *gi.sigma_v / (hyperprior * hyperprior);
@@ -456,7 +466,7 @@ void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior) {
   log_prior_current  += (2 - 1)*log(gi.rho + 1)      + (2 - 1)*log(1 - gi.rho);
   log_prior_proposed += (2 - 1)*log(proposal(1) + 1) + (2 - 1)*log(1 - proposal(1));
   
-  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed);
+  double lp_diff = calculate_lp_diff(gi, allfit, log_prior_current, log_prior_proposed, prior_only);
   double log_ratio_jacobian = log(fabs(proposal(0)*(proposal(1)*proposal(1) - 1))) - log(fabs(gi.sigma_v*(gi.rho*gi.rho - 1)));
   double log_ratio = lp_diff + log_ratio_jacobian;
 
@@ -477,7 +487,7 @@ void update_sigma_v_rho(ginfo& gi, double* allfit, double hyperprior) {
 }
 
 // program returns the difference in the log conditional posterior betweeen the propsal and the current value
-double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed) {
+double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, double log_prior_proposed, bool prior_only) {
   // Log likelihood requires two different sums: sum of the log of sigma_i^2, and sum of resid/sigma_i^2
   double sum_log_sig2_i_current     = 0;
   double sum_r_over_sig2_i_current  = 0;
@@ -485,18 +495,21 @@ double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, do
   double sum_r_over_sig2_i_proposed = 0;
 
   double r, r2, sigma2_current, sigma2_proposed;
-  for (size_t i=0;i<gi.n;i++) {
-    r = gi.y[i] - allfit[i];
-    r2 = r*r;
-    sigma2_current  = gi.sigma2_i[i];
-    sigma2_proposed = gi.prop_sig2[i];
-    
-    sum_log_sig2_i_current  += log(sigma2_current);
-    sum_log_sig2_i_proposed += log(sigma2_proposed);
+  if (!prior_only) {
+    for (size_t i=0;i<gi.n;i++) {
+      r = gi.y[i] - allfit[i];
+      r2 = r*r;
+      sigma2_current  = gi.sigma2_i[i];
+      sigma2_proposed = gi.prop_sig2[i];
+      
+      sum_log_sig2_i_current  += log(sigma2_current);
+      sum_log_sig2_i_proposed += log(sigma2_proposed);
 
-    sum_r_over_sig2_i_current  += r2/sigma2_current;
-    sum_r_over_sig2_i_proposed += r2/sigma2_proposed;
+      sum_r_over_sig2_i_current  += r2/sigma2_current;
+      sum_r_over_sig2_i_proposed += r2/sigma2_proposed;
+    }
   }
+  // NB: if prior only, the sums are left at their initialized values of 0
   // Now compose the log posteriors: log prior + log likelihood
   double lp_current  = log_prior_current  -0.5 * sum_log_sig2_i_current  - 0.5 * sum_r_over_sig2_i_current;
   double lp_proposed = log_prior_proposed -0.5 * sum_log_sig2_i_proposed - 0.5 * sum_r_over_sig2_i_proposed;
@@ -505,20 +518,22 @@ double calculate_lp_diff(ginfo& gi, double* allfit, double log_prior_current, do
   return(lp_diff);
 }
 
-double calculate_lp_diff_forscales(ginfo& gi, double* allfit, double* allfit_proposed, double log_prior_current, double log_prior_proposed) {
+double calculate_lp_diff_forscales(ginfo& gi, double* allfit, double* allfit_proposed, double log_prior_current, double log_prior_proposed, bool prior_only) {
   // Log likelihood requires two different sums: sum of the log of sigma_i^2, and sum of resid/sigma_i^2
   double sum_r_over_sig2_i_current  = 0;
   double sum_r_over_sig2_i_proposed = 0;
 
   double r_current, r2_current, r_proposed, r2_proposed;
-  for (size_t i=0;i<gi.n;i++) {
-    r_current = gi.y[i] - allfit[i];
-    r2_current = r_current*r_current;
-    r_proposed = gi.y[i] - allfit_proposed[i];
-    r2_proposed = r_proposed*r_proposed;
+  if (!prior_only) {
+    for (size_t i=0;i<gi.n;i++) {
+      r_current = gi.y[i] - allfit[i];
+      r2_current = r_current*r_current;
+      r_proposed = gi.y[i] - allfit_proposed[i];
+      r2_proposed = r_proposed*r_proposed;
 
-    sum_r_over_sig2_i_current  += r2_current/gi.sigma2_i[i];
-    sum_r_over_sig2_i_proposed += r2_proposed/gi.sigma2_i[i];
+      sum_r_over_sig2_i_current  += r2_current/gi.sigma2_i[i];
+      sum_r_over_sig2_i_proposed += r2_proposed/gi.sigma2_i[i];
+    }
   }
   // Now compose the log posteriors: log prior + log likelihood
   // thje logposterior also includes sum(log*sigma2_i), but because that is the same for both current and proposal, we can ignore in the diff since it falls out as a proportionality constant
@@ -541,23 +556,29 @@ void calculate_sigma2_i(ginfo& gi, double sigma_y, double sigma_u, double sigma_
   }
 }
 
-void draw_u(double* u, double* allfit, ginfo& gi) {
+void draw_u(double* u, double* allfit, ginfo& gi, bool prior_only) {
   double v_y = gi.sigma_y*gi.sigma_y;
   double v_u = gi.sigma_u*gi.sigma_u;
   double prior_prec = 1/v_u;
   double r, data_prec, post_prec, post_sd, post_mean;
-  for(size_t i=0;i<gi.n;i++) {
-    r = gi.y[i] - allfit[i];
-    data_prec = gi.w[i] / (v_y);
-    post_prec = prior_prec + data_prec;
-    post_sd = sqrt(1/post_prec);
-    post_mean = data_prec * r / post_prec;
+  if (!prior_only) {
+    for(size_t i=0;i<gi.n;i++) {
+      r = gi.y[i] - allfit[i];
+      data_prec = gi.w[i] / (v_y);
+      post_prec = prior_prec + data_prec;
+      post_sd = sqrt(1/post_prec);
+      post_mean = data_prec * r / post_prec;
 
-    u[i] = gi.gen.normal(post_mean, post_sd);
+      u[i] = gi.gen.normal(post_mean, post_sd);
+    }
+  } else {
+    for(size_t i=0;i<gi.n;i++) {
+      u[i] = gi.gen.normal(0., gi.sigma_u);
+    }
   }
 }
 
-void draw_uv(double* u, double* v, double* allfit, ginfo& gi) {
+void draw_uv(double* u, double* v, double* allfit, ginfo& gi, bool prior_only) {
   arma::mat Sigma(2,2);
   Sigma(0,0) = gi.sigma_u*gi.sigma_u;
   Sigma(0,1) = gi.rho*gi.sigma_u*gi.sigma_v;
@@ -575,21 +596,32 @@ void draw_uv(double* u, double* v, double* allfit, ginfo& gi) {
   arma::rowvec mu_star(2);
   arma::rowvec draw;
 
-  for(size_t i=0;i<gi.n;i++) {
-    r = gi.y[i] - allfit[i];
+  if (!prior_only) {
+    for(size_t i=0;i<gi.n;i++) {
+      r = gi.y[i] - allfit[i];
 
-    gamma(0) = 1;
-    gamma(1) = gi.z_[i];
+      gamma(0) = 1;
+      gamma(1) = gi.z_[i];
 
-    data_prec = gi.w[i] / (v_y) * (gamma * arma::trans(gamma));
-    Sigma_star = arma::inv(invSigma + data_prec);
-    
-    mu_star = arma::trans(Sigma_star * (gamma * (gi.w[i] *r / (v_y))));
+      data_prec = gi.w[i] / (v_y) * (gamma * arma::trans(gamma));
+      Sigma_star = arma::inv(invSigma + data_prec);
+      
+      mu_star = arma::trans(Sigma_star * (gamma * (gi.w[i] *r / (v_y))));
 
-    draw = mvnorm(mu_star, Sigma_star, gi.gen);
-    u[i] = draw(0);
-    v[i] = draw(1);
+      draw = mvnorm(mu_star, Sigma_star, gi.gen);
+      u[i] = draw(0);
+      v[i] = draw(1);
+    }
+  } else {
+
+    mu_star = (0,0);
+    for(size_t i=0;i<gi.n;i++) {
+      draw = mvnorm(mu_star, Sigma, gi.gen);
+      u[i] = draw(0);
+      v[i] = draw(1);
+    }
   }
+  
 }
 
 void update_mh_cov(arma::mat& cov_loc, arma::vec par1, arma::vec par2) {
