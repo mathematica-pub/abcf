@@ -1,0 +1,30 @@
+FROM rocker/tidyverse:4.1.3
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libxml2-dev \
+    libgit2-dev \
+    libpng-dev \
+    libudunits2-dev \
+    libgdal-dev \
+    libgl1-mesa-glx \
+	libnode-dev \
+	openssh-client \
+	curl \
+    && apt-get clean
+
+RUN R -e "install.packages(c('Rcpp','RcppArmadillo','RcppParallel','coda','Hmisc','parallel','doParallel','foreach'))"
+RUN R -e "install.packages(c('matrixStats','methods','testthat','spelling','knitr','rmarkdown','mvtnorm','glue'))"
+RUN R -e "install.packages(c('RcppEigen','V8','BH','StanHeaders','inline','loo','tictoc','dbarts','furrr','pROC'))"
+
+RUN R -e "devtools::install_github('vdorie/aciccomp/2016')"
+RUN R -e "devtools::install_github('vdorie/aciccomp/2017')"
+
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+RUN unzip awscliv2.zip
+RUN sudo ./aws/install
+
+RUN R -e "install.packages(c('modi','readxl','corpcor'))"
+
+#Do rstan last since it is slow AF
+RUN R -e "install.packages('rstan')"

@@ -1,0 +1,17 @@
+FROM base-r-nobcf
+
+RUN R -e "devtools::install_github(repo='https://github.com/mathematica-mpr/bcf-1',ref='feature/random-effects')"
+
+#Read-only deploy key
+RUN mkdir /root/.ssh/
+COPY ./key/bcf_aws_deploy /root/.ssh/id_rsa
+RUN chmod 700 /root/.ssh/id_rsa
+RUN echo ${HOME}
+RUN eval "$(ssh-agent -s)" && \
+	ssh-add /root/.ssh/id_rsa && \
+	ssh-keyscan -H github.com >> /root/.ssh/known_hosts && \
+	cd /home && \
+	git clone git@github.com:mathematica-mpr/bcf-sim-infra.git
+
+#the cloned repo has kickoff.R, which as a first line pulls the repo. So as long as we make changes to anything other than outer_shell.R, we don't have to rebuild
+ENTRYPOINT ["R", "-e", "source('/home/bcf-sim-infra/outer_shell.R')"]

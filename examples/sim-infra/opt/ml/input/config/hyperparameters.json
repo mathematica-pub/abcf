@@ -1,0 +1,8 @@
+{
+	"fun":"test_bcf",
+	"trt_eff_scenario":"homog",
+	"nT":100,
+	"nC":100,
+	"nburn":10,
+	"nsim":10
+}
