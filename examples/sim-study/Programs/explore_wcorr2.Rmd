@@ -1,0 +1,286 @@
+---
+title: "Exploring correlated weights"
+author: "Dan"
+date: '2023-04-03'
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+source('../programs/utils.R')
+
+overall <- readRDS('../data/mar-2023-wcorr2/all-overall.RDS')
+
+smry <- overall %>%
+  expand_grid(level=c('all','small')) %>%
+  mutate(SATTbias    = ifelse(level=='all',SATTbias,    SATTsmall_hat-SATTsmall),
+         SATTcover90 = ifelse(level=='all',SATTcover90, SATTsmallcover90),
+         SATTwidth90 = ifelse(level=='all',SATTwidth90, SATTsmallwidth90),
+         PEHT        = ifelse(level=='all', PEHT, CATEsmallRMSE),
+         CATEwidth90 = ifelse(level=='all', CATTwidth90, CATEsmallwidth90),
+         CATEcover90 = ifelse(level=='all', CATTcover90, CATEsmallcover90)) %>%
+  group_by(model, level, sigu_multiplier, r2_w_pi, r2_w_mu, r2_w_tau, w_as_covar) %>%
+  summarize(est_RMSE = sqrt(mean(SATTbias^2)),
+            est_cover = mean(SATTcover90),
+            est_width = mean(SATTwidth90),
+            est_PEHT = sqrt(mean(PEHT^2)),
+            est_PEHTwdt = mean(CATEwidth90),
+            est_PEHTcvg = mean(CATEcover90),
+            lb_width = quantile(SATTwidth90,.05),
+            ub_width = quantile(SATTwidth90,.95)) %>%
+  ungroup %>%
+  mutate(lb_cover = qbinom(.05,50,est_cover)/50,
+         ub_cover = qbinom(.95,50,est_cover)/50) %>%
+  pivot_longer(matches('est|lb|ub'), names_sep='_', names_to=c('.value', 'metric')) %>%
+  mutate(pi_class = case_when(r2_w_pi==0   ~ 'none',
+                              r2_w_pi==.25 ~ 'low pi',
+                              r2_w_pi==.5  ~ 'high pi') %>%
+           factor(levels=c('none','low pi','high pi')),
+         mu_class = case_when(r2_w_mu==0   ~ 'none',
+                              r2_w_mu==.25 ~ 'low mu',
+                              r2_w_mu==.5  ~ 'high mu') %>%
+           factor(levels=c('none','low mu','high mu')),
+         tau_class = case_when(r2_w_tau==0   ~ 'none',
+                               r2_w_tau==.25 ~ 'low tau',
+                               r2_w_tau==.5  ~ 'high tau') %>%
+           factor(levels=c('none','low tau','high tau')),
+         class = case_when(r2_w_pi==0   & r2_w_mu==0   & r2_w_tau==0 ~ 'none',
+                           r2_w_pi==0   & r2_w_mu==0   & r2_w_tau!=0 ~ as.character(tau_class),
+                           r2_w_pi==0   & r2_w_mu!=0   & r2_w_tau==0 ~ as.character(mu_class),
+                           r2_w_pi!=0   & r2_w_mu==0   & r2_w_tau==0 ~ as.character(pi_class),
+                           r2_w_pi==0   & r2_w_mu!=0   & r2_w_tau!=0 ~ paste(as.character(mu_class), as.character(tau_class), sep=', '),
+                           r2_w_pi!=0   & r2_w_mu==0   & r2_w_tau!=0 ~ paste(as.character(pi_class), as.character(tau_class), sep=', '),
+                           r2_w_pi!=0   & r2_w_mu!=0   & r2_w_tau==0 ~ paste(as.character(pi_class), as.character(mu_class), sep=', '),
+                           r2_w_pi!=0   & r2_w_mu!=0   & r2_w_tau!=0 ~ paste(as.character(pi_class), as.character(mu_class), as.character(tau_class), sep=', ')),
+         metric=factor(metric, levels=c('RMSE','width','cover','PEHT','PEHTwdt','PEHTcvg')))
+
+overall_r2e <- readRDS('../data/apr-2023-r2e/all-overall.RDS')
+smry_r2e <- overall_r2e %>%
+  rename(SATTall=SATT,
+         SATTall_hat=SATT_hat,
+         SATTallcover90=SATTcover90,
+         SATTallwidth90=SATTwidth90,
+         CATEallRMSE=PEHT,
+         CATEallwidth90=CATTwidth90,
+         CATEallcover90=CATTcover90) %>%
+  select(model, sim, r2_error, sigv_multiplier, matches('all|small|mid1|mid2|large'), -matches('80|95')) %>%
+  pivot_longer(-c(model, sim, r2_error, sigv_multiplier)) %>%
+  mutate(level = str_extract(name,'all|small|mid1|mid2|large'),
+         name = str_remove(name, level)) %>%
+  pivot_wider() %>%
+  group_by(model, level, r2_error, sigv_multiplier) %>%
+  summarize(est_RMSE = sqrt(mean((SATT-SATT_hat)^2)),
+            est_cover = mean(SATTcover90),
+            est_width = mean(SATTwidth90),
+            true_width = sd(SATT)*2*qnorm(.95),
+            est_PEHT = sqrt(mean(CATERMSE^2)),
+            est_PEHTwdt = mean(CATEwidth90),
+            est_PEHTcvg = mean(CATEcover90),
+            lb_width = quantile(SATTwidth90,.05),
+            ub_width = quantile(SATTwidth90,.95)) %>%
+  ungroup %>%
+  mutate(lb_cover = qbinom(.05,50,est_cover)/50,
+         ub_cover = qbinom(.95,50,est_cover)/50) %>%
+  pivot_longer(matches('est|lb|ub|true'), names_sep='_', names_to=c('.value', 'metric')) %>%
+  mutate(metric=factor(metric, levels=c('RMSE','width','cover','PEHT','PEHTwdt','PEHTcvg')),
+         level=factor(level, levels=c('all','small','mid1','mid2','large')))
+```
+
+## Correlations with tau
+
+NB: RMSE/width/cover refer to SATT (for small practices it's CATT: ATT|bottom quartile of practices), PEHT/PEHTwdt/PEHTcvg are RMSE/width/coverage of individual taus.
+none=no correlation with tau, low = 25% of variance in tau is from quartiles of w, high = 50% of variance
+When we add correlations between weights and tau, we get differential performance for small vs large practices for both models. I was kinda surprised by that, but I guess it makes sense, since bcf in general is going to care less about those guys.
+
+We definitely see more daylight between ubcf and wbcf for small practice RMSE than all practice RMSE, and we start seeing it at $\sigma_u$=1, albeit weakly.
+
+For PEHT we see some daylight for small practices at $\sigma_u$=1, and we see the differences really explode between u and w, but only at really extreme values
+
+```{r tau, echo=FALSE}
+smry %>%
+  filter(mu_class=='none' & pi_class=='none'  & w_as_covar) %>%
+  ggplot(aes(x=sigu_multiplier, y=est, color=model, linetype=level)) + 
+  geom_line() + 
+  geom_point() + 
+  facet_grid(metric~tau_class, scales='free_y')
+```
+
+## Correlations with pi
+
+NB: RMSE/width/cover refer to SATT (for small practices it's CATT: ATT|bottom quartile of practices), PEHT/PEHTwdt/PEHTcvg are RMSE/width/coverage of individual taus.
+none=no correlation with pscore, low = 25% of variance in pscore is from quartiles of w, high = 50% of variance
+
+I gotta admit I don't see much here.
+
+```{r pi, echo=FALSE}
+smry %>%
+  filter(mu_class=='none' & tau_class=='none'  & w_as_covar) %>%
+  ggplot(aes(x=sigu_multiplier, y=est, color=model, linetype=level)) + 
+  geom_line() + 
+  geom_point() + 
+  facet_grid(metric~pi_class, scales='free_y')
+```
+
+## Correlations with mu
+
+NB: RMSE/width/cover refer to SATT (for small practices it's CATT: ATT|bottom quartile of practices), PEHT/PEHTwdt/PEHTcvg are RMSE/width/coverage of individual taus.
+none=no correlation with mu, low = 25% of variance in mu is from quartiles of w, high = 50% of variance
+
+I don't see much here either.
+
+```{r mu, echo=FALSE}
+smry %>%
+  filter(pi_class=='none' & tau_class=='none'  & w_as_covar) %>%
+  ggplot(aes(x=sigu_multiplier, y=est, color=model, linetype=level)) + 
+  geom_line() + 
+  geom_point() + 
+  facet_grid(metric~mu_class, scales='free_y')
+```
+
+## Interactions between tau and mu/pi
+
+I don't think I'm smart enough to make any sense of this.
+
+```{r intxn, echo=FALSE}
+smry %>%
+  filter(class %in% c('high tau', 'high pi, high tau','high mu, high tau','high pi, high mu, high tau') & w_as_covar) %>%
+  ggplot(aes(x=sigu_multiplier, y=est, color=model, linetype=level)) + 
+  geom_line() + 
+  geom_point() + 
+  facet_grid(metric~class, scales='free_y')
+```
+
+## Zooming back
+
+So zooming in on the high-tau setting, is this enough to care about? I can tell I'm feeling pessimistic, but what we get is a teeny improvement on RMSE (~18 vs 21) when a) there is a bananas correlation between size and impacts b) there is a bananas large $\sigma_u$ (at ~$130) c) for the smallest practices only.
+
+PEHT/UTEs it's a bit better but still not much to write home about.
+
+```{r, echo=FALSE}
+smry %>%
+  filter(mu_class=='none' & pi_class=='none' & tau_class=='high tau' & w_as_covar & sigu_multiplier<4) %>%
+  ggplot(aes(x=sigu_multiplier, y=est, color=model, linetype=level)) + 
+  geom_line() + 
+  geom_point() + 
+  facet_wrap(~metric, scales='free_y')
+```
+
+## Base case
+
+Looking at the case where there is no correlation with mu/tau/pi, the most striking piece to me is the PEHT, where ubcf is relatively flat wrt $\sigma_u$ while wbcf responds strongly. So that's the strongest difference, but it's not clear to me that it's something we or Tim really care about since it's under extreme cases mostly. But is there an interesting point for the literature that if there are big resids UTEs are hard if we don't account for resids?
+
+I also think it's interesting that PEHT blows up more for large practices (well, all vs small so implicitly large). Is that an interesting perverse effect?
+
+That almost makes me want to parameterize differently, like have the DGP have a fixed error variance and have the axis be 0% $\sigma_u$/100% $\sigma_y$ at one end and 100% $\sigma_u$/0% $\sigma_y$ at the other. It divorces it from our context, but maybe makes clearer the tradeoffs?
+
+This is also making me think that I always have $\sigma_v$=8 in all of these. Will it be weird to have the paper be mostly ignoring v but always have it in the dgp, then have 1 subsection that talks about v?
+
+```{r, echo=FALSE}
+smry %>%
+  filter(mu_class=='none' & pi_class=='none' & tau_class=='none' & w_as_covar) %>%
+  ggplot(aes(x=sigu_multiplier, y=est, color=model, linetype=level)) + 
+  geom_line() + 
+  geom_point() + 
+  facet_wrap(~metric, scales='free_y')
+```
+
+Ok, lets look at that different parameterization. Here I hold error variance for an average-sized practice constant, and just vary the portion that's avg bene vs practice error. 
+
+It does look like PEHT for wBCF gets worse and worse the more of the error is from u.
+
+Not sure what's up with the u-shaped width. I do wonder if under all that noise wbcf's coverage is going down?
+
+(holy hell that's noisy)
+
+I'm surprised that PEHT width doesn't vary with practice size, but maybe I shouldn't be?
+
+```{r, echo=FALSE}
+smry_r2e %>%
+  filter(sigv_multiplier==1) %>%
+  ggplot(aes(x=r2_error, y=est, color=level, linetype=model)) + 
+  geom_line() + 
+  geom_point() + 
+  facet_wrap(~metric, scales='free_y')
+
+smry_r2e %>%
+  filter(sigv_multiplier==1 & level=='all') %>%
+  ggplot(aes(x=r2_error, y=est, color=model)) + 
+  geom_line() + 
+  geom_point() + 
+  facet_wrap(~metric, scales='free_y')
+
+smry_r2e %>%
+  filter(sigv_multiplier==1 & level=='all' & metric=='RMSE') %>%
+  ggplot(aes(x=r2_error, y=est, color=model)) + 
+  geom_line() + 
+  geom_point() +
+  scale_color_manual(values=c('wBCF'='transparent', 'uBCF'='transparent')) +
+  labs(x='Share of error explained by practice effect',
+       y='RMSE of overall impact estimate',
+       color='') +
+  scale_y_continuous(limits=c(0,8), breaks=seq(0,8,2))
+ggsave('../data/apr-2023-r2e/rmse_vs_r2error0.png')
+
+smry_r2e %>%
+  filter(sigv_multiplier==1 & level=='all' & metric=='RMSE') %>%
+  ggplot(aes(x=r2_error, y=est, color=model)) + 
+  geom_line() + 
+  geom_point() +
+  scale_color_manual(values=c('wBCF'=scales::hue_pal()(2)[2], 'uBCF'='transparent')) +
+  labs(x='Share of error explained by practice effect',
+       y='RMSE of overall impact estimate',
+       color='') +
+  scale_y_continuous(limits=c(0,8), breaks=seq(0,8,2))
+ggsave('../data/apr-2023-r2e/rmse_vs_r2error1.png')
+
+smry_r2e %>%
+  filter(sigv_multiplier==1 & level=='all' & metric=='RMSE') %>%
+  ggplot(aes(x=r2_error, y=est, color=model)) + 
+  geom_line() + 
+  geom_point() +
+  labs(x='Share of error explained by practice effect',
+       y='RMSE of overall impact estimate',
+       color='') +
+  scale_y_continuous(limits=c(0,8), breaks=seq(0,8,2))
+ggsave('../data/apr-2023-r2e/rmse_vs_r2error.png')
+
+smry_r2e %>%
+  filter(sigv_multiplier==1 & level=='all' & metric=='PEHT') %>%
+  ggplot(aes(x=r2_error, y=est, color=model)) + 
+  geom_line() + 
+  geom_point() +
+  labs(x='Share of error explained by practice effect',
+       y='RMSE of practice-specific impacts',
+       color='') +
+  scale_y_continuous(limits=c(0,25), breaks=seq(0,25,5))
+ggsave('../data/apr-2023-r2e/peht_vs_r2error.png')
+```
+
+```{r, include=FALSE}
+mixing_r2e <- readRDS('../data/apr-2023-r2e/all-mixing.RDS') %>%
+  mutate(par = ifelse(method=='wbcf' & par=='sigma','sigma_y',par)) %>%
+  filter(par %in% c('sigma_u', 'sigma_y')) %>%
+  group_by(r2_error, method, sigv_multiplier, par) %>%
+  summarize(truth = mean(real),
+            est = mean(mean),
+            q25 = quantile(mean,.25),
+            q75 = quantile(mean, .75),
+            sd_est = sd(mean),
+            est_sd = mean(sd))
+```
+
+Yuuuuup. wBCF just can't get it right.
+
+```{r, echo=FALSE}
+mixing_r2e %>%
+  filter(sigv_multiplier!=0) %>%
+  mutate(lb = est - qnorm(.95)*sqrt(sd_est^2+est_sd^2),
+         ub = est + qnorm(.95)*sqrt(sd_est^2+est_sd^2)) %>%
+  ggplot(aes(x=r2_error, y=est, ymin=lb, ymax=ub, color=method, fill=method)) + 
+  geom_line(aes(y=truth), color='black',linetype='dashed') +
+  geom_point() +
+  geom_line() +
+  geom_ribbon(alpha=.25, linewidth=0) +
+  facet_wrap(~par, scales='free_y')
+```
